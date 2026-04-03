@@ -18,11 +18,11 @@ export interface FuelStation {
 // Only verified working endpoints are included
 export const FUEL_SOURCES = [
   { brand: "Asda",       url: "https://storelocator.asda.com/fuel_prices_data.json" },
-  // Tesco returns 403 from server-side requests — omitted until resolved
-  { brand: "Morrisons",  url: "https://www.morrisons.com/fuel-prices/fuel.json" },
   { brand: "Sainsburys", url: "https://api.sainsburys.co.uk/v1/exports/latest/fuel_prices_data.json" },
   { brand: "Jet",        url: "https://jetlocal.co.uk/fuel_prices_data.json" },
-  { brand: "Applegreen", url: "https://applegreenstores.com/fuel-prices/data.json" },
+  // Tesco: 403 on server-side requests
+  // Morrisons: feed returns only 1 station (broken)
+  // Applegreen: last updated Feb 2025 (stale)
 ];
 
 export function haversineDistance(
