@@ -4,7 +4,14 @@
 
 @import "leaflet/dist/leaflet.css";
 
-html,
-body {
+html, body, #__next {
   height: 100%;
+}
+
+/* Safe area insets for iPhone notch / home bar */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
 }
