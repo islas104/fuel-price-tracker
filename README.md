@@ -1,16 +1,22 @@
 # FuelFinder
 
-Live UK petrol and diesel prices near you. Built with Next.js 14, Leaflet maps, and real-time data from CMA-mandated open feeds (Asda, Sainsbury's, Jet).
+FuelFinder is a live UK fuel price tracker that shows you the cheapest petrol and diesel stations near your current location. It pulls real-time prices directly from retailer feeds (Asda, Sainsbury's, Jet) that are legally required to publish up-to-date pump prices under the UK Competition and Markets Authority (CMA) mandate.
 
-## Features
+Open the app, allow location access, and instantly see every nearby station ranked by price — with an interactive map, savings comparisons, and one-tap directions.
 
-- Live prices updated every 15–30 minutes direct from retailers
-- Interactive map with price labels at each station
-- Sort by cheapest price or nearest station
-- Petrol and diesel toggle
-- Adjustable search radius (2–30 km)
-- Savings badge showing how much more each station costs vs the cheapest
-- Works on mobile and desktop
+---
+
+## What it does
+
+- Detects your location and finds all fuel stations within a set radius
+- Shows live petrol and diesel prices updated every 15–30 minutes
+- Ranks stations from cheapest to most expensive
+- Highlights the cheapest station nearby and shows how much more expensive each other station is (e.g. +2.1p vs cheapest)
+- Displays stations on an interactive map with price labels
+- Lets you switch between petrol and diesel, sort by price or distance, and adjust the search radius from 2 to 30 km
+- Works on both mobile and desktop
+
+---
 
 ## Getting started
 
@@ -38,17 +44,21 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser. Allow location access when prompted — this is used to find stations near you. No data is stored or sent anywhere.
+Open [http://localhost:3000](http://localhost:3000) in your browser and allow location access when prompted. No API keys or accounts required — it works out of the box.
+
+---
 
 ## Data sources
 
-Prices are fetched server-side from retailer feeds mandated by the UK Competition and Markets Authority (CMA). Retailers are legally required to publish their pump prices and update them within 30 minutes of any change.
+Prices are fetched server-side from CMA-mandated retailer feeds. UK law requires fuel retailers to publish their pump prices and update them within 30 minutes of any change.
 
-| Retailer | Stations | Update frequency |
+| Retailer | Stations | Typical update frequency |
 |---|---|---|
 | Asda | ~790 | Hourly |
 | Sainsbury's | ~316 | Every few hours |
 | Jet | ~11 | Hourly |
+
+---
 
 ## Build for production
 
@@ -57,18 +67,20 @@ npm run build
 npm start
 ```
 
-## Deploy to Vercel
+## Deploy to Vercel (free)
 
-The easiest way to deploy is with [Vercel](https://vercel.com):
-
-1. Push your code to GitHub
-2. Go to [vercel.com](https://vercel.com) and import the repo
+1. Push the repo to GitHub
+2. Go to [vercel.com](https://vercel.com) and import the repository
 3. Click Deploy — no environment variables needed
+
+---
 
 ## Tech stack
 
-- [Next.js 14](https://nextjs.org) — React framework with API routes
-- [Tailwind CSS](https://tailwindcss.com) — styling
-- [Leaflet](https://leafletjs.com) / [React Leaflet](https://react-leaflet.js.org) — interactive map
-- [Lucide React](https://lucide.dev) — icons
-- [OpenStreetMap](https://openstreetmap.org) — map tiles
+| | |
+|---|---|
+| Framework | [Next.js 14](https://nextjs.org) |
+| Styling | [Tailwind CSS](https://tailwindcss.com) |
+| Map | [Leaflet](https://leafletjs.com) + [OpenStreetMap](https://openstreetmap.org) |
+| Icons | [Lucide React](https://lucide.dev) |
+| Data | UK CMA open retailer feeds |
