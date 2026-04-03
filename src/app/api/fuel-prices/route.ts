@@ -6,9 +6,10 @@ import {
   normaliseStation,
 } from "@/lib/fuel-sources";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
-const FUEL_FINDER_BASE = "https://api.fuelfinder.service.gov.uk/v1";
+const FUEL_FINDER_BASE    = "https://api.fuelfinder.service.gov.uk/v1";
+const FUEL_FINDER_AUTH    = "https://api.fuelfinder.service.gov.uk/oauth/token";
 
 // Cache the token in memory for the duration of the edge function lifetime
 let cachedToken: { value: string; expiresAt: number } | null = null;
@@ -30,7 +31,7 @@ async function getFuelFinderToken(): Promise<string | null> {
     scope:         "fuelfinder.read",
   });
 
-  const res = await fetch(`${FUEL_FINDER_BASE}/oauth/token`, {
+  const res = await fetch(FUEL_FINDER_AUTH, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
@@ -134,6 +135,8 @@ async function fetchOpenFeeds(): Promise<FuelStation[]> {
         next: { revalidate: 1800 },
       });
       if (!res.ok) throw new Error(`${source.brand}: HTTP ${res.status}`);
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("json")) throw new Error(`${source.brand}: unexpected content-type ${contentType}`);
       const json = await res.json();
       const raw: unknown[] =
         json.stations ?? json.sites ?? json.data ?? json.results ??

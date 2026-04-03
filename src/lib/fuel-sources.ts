@@ -15,19 +15,14 @@ export interface FuelStation {
 }
 
 // UK CMA-mandated open fuel price feeds — no API key required
+// Only verified working endpoints are included
 export const FUEL_SOURCES = [
-  { brand: "Asda",        url: "https://storelocator.asda.com/fuel_prices_data.json" },
-  { brand: "Tesco",       url: "https://www.tesco.com/store-locator/fuel-prices/fuel.json" },
-  { brand: "Morrisons",   url: "https://www.morrisons.com/fuel-prices/fuel.json" },
-  { brand: "Sainsburys",  url: "https://api.sainsburys.co.uk/v1/exports/latest/fuel_prices_data.json" },
-  { brand: "Jet",         url: "https://jetlocal.co.uk/fuel_prices_data.json" },
-  { brand: "Applegreen",  url: "https://applegreenstores.com/fuel-prices/data.json" },
-  { brand: "BP",          url: "https://www.bp.com/en_gb/united-kingdom/home/fuelprices/fuel_prices_data.json" },
-  { brand: "Shell",       url: "https://www.shell.co.uk/motorist/shell-fuels/shell-price-watch/fuel_prices_data.json" },
-  { brand: "Esso",        url: "https://fuelprices.esso.co.uk/fuel_prices_data.json" },
-  { brand: "Gulf",        url: "https://www.gulf.co.uk/fuel-prices/fuel_prices_data.json" },
-  { brand: "Texaco",      url: "https://www.texaco.co.uk/fuel-prices/fuel_prices_data.json" },
-  { brand: "Murco",       url: "https://www.murco.co.uk/fuel-prices/fuel_prices_data.json" },
+  { brand: "Asda",       url: "https://storelocator.asda.com/fuel_prices_data.json" },
+  { brand: "Tesco",      url: "https://www.tesco.com/store-locator/fuel-prices/fuel.json" },
+  { brand: "Morrisons",  url: "https://www.morrisons.com/fuel-prices/fuel.json" },
+  { brand: "Sainsburys", url: "https://api.sainsburys.co.uk/v1/exports/latest/fuel_prices_data.json" },
+  { brand: "Jet",        url: "https://jetlocal.co.uk/fuel_prices_data.json" },
+  { brand: "Applegreen", url: "https://applegreenstores.com/fuel-prices/data.json" },
 ];
 
 export function haversineDistance(
