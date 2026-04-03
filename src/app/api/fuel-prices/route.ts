@@ -125,9 +125,12 @@ async function fetchOpenFeeds(): Promise<FuelStation[]> {
         signal:  AbortSignal.timeout(10_000),
       });
       if (!res.ok) throw new Error(`${source.brand}: HTTP ${res.status}`);
-      const ct = res.headers.get("content-type") ?? "";
-      if (!ct.includes("json")) throw new Error(`${source.brand}: non-JSON response`);
-      const json = await res.json();
+      // Sainsbury's (and others) send JSON with content-type: text/plain — parse by text
+      const text = await res.text();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let json: any;
+      try { json = JSON.parse(text); }
+      catch { throw new Error(`${source.brand}: non-JSON response`); }
       const raw: unknown[] =
         json.stations ?? json.sites ?? json.data ?? json.results ??
         (Array.isArray(json) ? json : []);
