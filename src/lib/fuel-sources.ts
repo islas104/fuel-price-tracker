@@ -18,13 +18,15 @@ export interface FuelStation {
 // Shell, Tesco, Esso: actively block server-side requests (403)
 // Morrisons: feed broken (returns 1 station)
 export const FUEL_SOURCES = [
-  // Standard fetch — return JSON with no bot protection
-  { brand: "Asda",       url: "https://storelocator.asda.com/fuel_prices_data.json",                                          mobileUA: false },
-  { brand: "Sainsburys", url: "https://api.sainsburys.co.uk/v1/exports/latest/fuel_prices_data.json",                         mobileUA: false },
-  { brand: "Jet",        url: "https://jetlocal.co.uk/fuel_prices_data.json",                                                 mobileUA: false },
-  { brand: "Ascona",     url: "https://fuelprices.asconagroup.co.uk/newfuel.json",                                            mobileUA: false },
-  // Requires mobile User-Agent to bypass bot block
-  { brand: "BP",         url: "https://www.bp.com/en_gb/united-kingdom/home/fuelprices/fuel_prices_data.json",               mobileUA: true  },
+  // Standard fetch
+  { brand: "Asda",       url: "https://storelocator.asda.com/fuel_prices_data.json",                                        mobileUA: false, scraperApi: false },
+  { brand: "Sainsburys", url: "https://api.sainsburys.co.uk/v1/exports/latest/fuel_prices_data.json",                       mobileUA: false, scraperApi: false },
+  { brand: "Jet",        url: "https://jetlocal.co.uk/fuel_prices_data.json",                                               mobileUA: false, scraperApi: false },
+  { brand: "Ascona",     url: "https://fuelprices.asconagroup.co.uk/newfuel.json",                                          mobileUA: false, scraperApi: false },
+  // Requires mobile User-Agent
+  { brand: "BP",         url: "https://www.bp.com/en_gb/united-kingdom/home/fuelprices/fuel_prices_data.json",             mobileUA: true,  scraperApi: false },
+  // Requires ScraperAPI (Akamai bot protection)
+  { brand: "Tesco",      url: "https://www.tesco.com/store-locator/fuel-prices/fuel.json",                                  mobileUA: false, scraperApi: true  },
 ];
 
 export function haversineDistance(

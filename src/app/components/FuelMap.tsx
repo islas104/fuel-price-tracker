@@ -15,7 +15,7 @@ interface Props {
 const BRAND_COLORS: Record<string, string> = {
   Asda:          "#16a34a",
   Morrisons:     "#eab308",
-  Tesco:         "#dc2626",
+  Tesco:         "#e2001a",
   Sainsburys:    "#f97316",
   "Sainsbury's": "#f97316",
   Jet:           "#ef4444",
