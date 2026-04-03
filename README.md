@@ -67,12 +67,6 @@ npm run build
 npm start
 ```
 
-## Deploy to Vercel (free)
-
-1. Push the repo to GitHub
-2. Go to [vercel.com](https://vercel.com) and import the repository
-3. Click Deploy — no environment variables needed
-
 ---
 
 ## Tech stack
