@@ -199,6 +199,7 @@ export default function Home() {
                 fuelType={fuelType}
                 selectedId={selectedId}
                 onSelectStation={handleSelectStation}
+                isVisible={mobileView === "map"}
               />
             </div>
           ) : (

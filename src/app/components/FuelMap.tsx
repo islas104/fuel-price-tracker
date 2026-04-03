@@ -9,6 +9,7 @@ interface Props {
   fuelType: "petrol" | "diesel";
   selectedId: string | null;
   onSelectStation: (id: string) => void;
+  isVisible: boolean;
 }
 
 const BRAND_COLORS: Record<string, string> = {
@@ -20,7 +21,7 @@ const BRAND_COLORS: Record<string, string> = {
   Applegreen: "#15803d",
 };
 
-export default function FuelMap({ userLat, userLng, stations, fuelType, selectedId, onSelectStation }: Props) {
+export default function FuelMap({ userLat, userLng, stations, fuelType, selectedId, onSelectStation, isVisible }: Props) {
   const mapRef         = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapInstanceRef = useRef<any>(null);
@@ -96,6 +97,12 @@ export default function FuelMap({ userLat, userLng, stations, fuelType, selected
       });
     });
   }, [stations, fuelType, onSelectStation]);
+
+  // Recalculate size when map becomes visible (hidden → shown on mobile)
+  useEffect(() => {
+    if (!isVisible || !mapInstanceRef.current) return;
+    setTimeout(() => mapInstanceRef.current?.invalidateSize(), 50);
+  }, [isVisible]);
 
   // Pan to selected station
   useEffect(() => {
