@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import {
   FUEL_SOURCES,
   FuelStation,
@@ -8,33 +9,11 @@ import {
 
 export const runtime = "nodejs";
 
-// ---------------------------------------------------------------------------
-// Server-side in-memory cache
-// Stores ALL normalised stations so concurrent requests share one fetch.
-// Expires after 15 minutes — radius filtering happens per-request in memory.
-// ---------------------------------------------------------------------------
-interface StationCache {
-  stations:  FuelStation[];
-  fetchedAt: number;
-}
-
-let cache: StationCache | null = null;
-const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
-
-// In-flight promise deduplication — if a fetch is already running, wait for it
-// instead of firing a second one (thundering herd protection).
-let inflightFetch: Promise<FuelStation[]> | null = null;
-
-async function getAllStations(): Promise<FuelStation[]> {
-  // Return cache if still fresh
-  if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
-    return cache.stations;
-  }
-
-  // Deduplicate concurrent requests
-  if (inflightFetch) return inflightFetch;
-
-  inflightFetch = (async () => {
+// Fetch and normalise all stations from every retailer feed.
+// unstable_cache persists this on Vercel's shared cache infrastructure
+// (survives across serverless function instances) and revalidates every 15 min.
+const getAllStations = unstable_cache(
+  async (): Promise<FuelStation[]> => {
     const results = await Promise.allSettled(
       FUEL_SOURCES.map(async (source) => {
         const res = await fetch(source.url, {
@@ -59,21 +38,14 @@ async function getAllStations(): Promise<FuelStation[]> {
       })
     );
 
-    const stations = results
+    return results
       .filter((r) => r.status === "fulfilled")
       .flatMap((r) => (r as PromiseFulfilledResult<FuelStation[]>).value);
+  },
+  ["fuel-stations"],
+  { revalidate: 900 } // 15 minutes
+);
 
-    cache = { stations, fetchedAt: Date.now() };
-    inflightFetch = null;
-    return stations;
-  })();
-
-  return inflightFetch;
-}
-
-// ---------------------------------------------------------------------------
-// Route handler
-// ---------------------------------------------------------------------------
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const lat    = parseFloat(searchParams.get("lat")    ?? "0");
@@ -89,18 +61,10 @@ export async function GET(req: NextRequest) {
   const nearby = all
     .map((s)  => ({ ...s, distance: haversineDistance(lat, lng, s.lat, s.lng) }))
     .filter((s) => s.distance <= radius)
-    .sort((a, b) => a.distance - b.distance);
-
-  const age = cache ? Math.floor((Date.now() - cache.fetchedAt) / 1000) : 0;
-  const maxAge = Math.max(0, CACHE_TTL_MS / 1000 - age);
+    .sort((a, b)  => a.distance - b.distance);
 
   return NextResponse.json(
     { stations: nearby, count: nearby.length },
-    {
-      headers: {
-        // Tell the browser to cache for however long is left on the server cache
-        "Cache-Control": `public, max-age=${maxAge}, stale-while-revalidate=60`,
-      },
-    }
+    { headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=600" } }
   );
 }
