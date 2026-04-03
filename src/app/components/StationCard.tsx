@@ -10,6 +10,10 @@ const BRAND_COLORS: Record<string, { bg: string; text: string }> = {
   "Sainsbury's": { bg: "bg-orange-500", text: "text-white" },
   Jet:           { bg: "bg-red-700",    text: "text-white" },
   Applegreen:    { bg: "bg-green-700",  text: "text-white" },
+  BP:            { bg: "bg-green-800",  text: "text-white" },
+  Ascona:        { bg: "bg-blue-700",   text: "text-white" },
+  Gulf:          { bg: "bg-orange-600", text: "text-white" },
+  Texaco:        { bg: "bg-red-600",    text: "text-white" },
 };
 
 interface Props {

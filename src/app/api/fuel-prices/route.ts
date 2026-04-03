@@ -17,8 +17,13 @@ const getAllStations = unstable_cache(
     const results = await Promise.allSettled(
       FUEL_SOURCES.map(async (source) => {
         const res = await fetch(source.url, {
-          headers: { "User-Agent": "FuelPriceTracker/1.0" },
-          signal:  AbortSignal.timeout(10_000),
+          headers: {
+            "User-Agent": source.mobileUA
+              ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+              : "FuelPriceTracker/1.0",
+            "Accept": "application/json, text/plain, */*",
+          },
+          signal: AbortSignal.timeout(10_000),
         });
         if (!res.ok) throw new Error(`${source.brand}: HTTP ${res.status}`);
 

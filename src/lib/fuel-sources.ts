@@ -14,15 +14,17 @@ export interface FuelStation {
   lastUpdated?: string;
 }
 
-// UK CMA-mandated open fuel price feeds — no API key required
-// Only verified working endpoints are included
+// UK CMA-mandated open fuel price feeds — verified working
+// Shell, Tesco, Esso: actively block server-side requests (403)
+// Morrisons: feed broken (returns 1 station)
 export const FUEL_SOURCES = [
-  { brand: "Asda",       url: "https://storelocator.asda.com/fuel_prices_data.json" },
-  { brand: "Sainsburys", url: "https://api.sainsburys.co.uk/v1/exports/latest/fuel_prices_data.json" },
-  { brand: "Jet",        url: "https://jetlocal.co.uk/fuel_prices_data.json" },
-  // Tesco: 403 on server-side requests
-  // Morrisons: feed returns only 1 station (broken)
-  // Applegreen: last updated Feb 2025 (stale)
+  // Standard fetch — return JSON with no bot protection
+  { brand: "Asda",       url: "https://storelocator.asda.com/fuel_prices_data.json",                                          mobileUA: false },
+  { brand: "Sainsburys", url: "https://api.sainsburys.co.uk/v1/exports/latest/fuel_prices_data.json",                         mobileUA: false },
+  { brand: "Jet",        url: "https://jetlocal.co.uk/fuel_prices_data.json",                                                 mobileUA: false },
+  { brand: "Ascona",     url: "https://fuelprices.asconagroup.co.uk/newfuel.json",                                            mobileUA: false },
+  // Requires mobile User-Agent to bypass bot block
+  { brand: "BP",         url: "https://www.bp.com/en_gb/united-kingdom/home/fuelprices/fuel_prices_data.json",               mobileUA: true  },
 ];
 
 export function haversineDistance(
