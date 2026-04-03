@@ -3,165 +3,192 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { FuelStation } from "@/lib/fuel-sources";
 import StationCard from "./components/StationCard";
-import { Fuel, Loader2, LocateFixed, AlertCircle, SlidersHorizontal } from "lucide-react";
+import SkeletonCard from "./components/SkeletonCard";
+import {
+  Fuel, LocateFixed, AlertCircle, Map, List,
+  ChevronDown, ArrowUpDown, TrendingDown,
+} from "lucide-react";
 
 const FuelMap = dynamic(() => import("./components/FuelMap"), { ssr: false });
 
 type FuelType = "petrol" | "diesel";
-type SortBy = "distance" | "price";
+type SortBy   = "distance" | "price";
+type View     = "list" | "map";
 
 export default function Home() {
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [stations, setStations] = useState<FuelStation[]>([]);
-  const [fuelType, setFuelType] = useState<FuelType>("petrol");
-  const [sortBy, setSortBy] = useState<SortBy>("price");
-  const [radius, setRadius] = useState(10);
-  const [loading, setLoading] = useState(false);
-  const [geoError, setGeoError] = useState<string | null>(null);
+  const [location,   setLocation]   = useState<{ lat: number; lng: number } | null>(null);
+  const [stations,   setStations]   = useState<FuelStation[]>([]);
+  const [fuelType,   setFuelType]   = useState<FuelType>("petrol");
+  const [sortBy,     setSortBy]     = useState<SortBy>("price");
+  const [radius,     setRadius]     = useState(10);
+  const [loading,    setLoading]    = useState(false);
+  const [geoError,   setGeoError]   = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<View>("list");
   const listRef = useRef<HTMLDivElement>(null);
 
   const getLocation = useCallback(() => {
     setGeoError(null);
-    if (!navigator.geolocation) {
-      setGeoError("Geolocation is not supported by your browser.");
-      return;
-    }
+    if (!navigator.geolocation) { setGeoError("Geolocation is not supported."); return; }
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      },
-      (err) => {
-        setGeoError(`Location access denied: ${err.message}`);
-      },
+      (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (err) => setGeoError(`Location denied: ${err.message}`),
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }, []);
 
-  useEffect(() => {
-    getLocation();
-  }, [getLocation]);
+  useEffect(() => { getLocation(); }, [getLocation]);
 
   useEffect(() => {
     if (!location) return;
     setLoading(true);
     setFetchError(null);
-
     fetch(`/api/fuel-prices?lat=${location.lat}&lng=${location.lng}&radius=${radius}`)
       .then((r) => r.json())
-      .then((data) => {
-        if (data.error) throw new Error(data.error);
-        setStations(data.stations ?? []);
-      })
+      .then((d) => { if (d.error) throw new Error(d.error); setStations(d.stations ?? []); })
       .catch((e) => setFetchError(e.message))
       .finally(() => setLoading(false));
   }, [location, radius]);
 
   const sorted = [...stations]
     .filter((s) => s.prices[fuelType] !== undefined)
-    .sort((a, b) => {
-      if (sortBy === "price") {
-        return (a.prices[fuelType] ?? Infinity) - (b.prices[fuelType] ?? Infinity);
-      }
-      return (a.distance ?? 0) - (b.distance ?? 0);
-    });
+    .sort((a, b) =>
+      sortBy === "price"
+        ? (a.prices[fuelType] ?? Infinity) - (b.prices[fuelType] ?? Infinity)
+        : (a.distance ?? 0) - (b.distance ?? 0)
+    );
 
-  const cheapest = sorted[0]?.prices[fuelType];
+  const cheapestPrice  = sorted[0]?.prices[fuelType];
+  const cheapestDiesel = [...stations]
+    .filter((s) => s.prices.diesel !== undefined)
+    .sort((a, b) => (a.prices.diesel ?? Infinity) - (b.prices.diesel ?? Infinity))[0]?.prices.diesel;
+  const cheapestPetrol = [...stations]
+    .filter((s) => s.prices.petrol !== undefined)
+    .sort((a, b) => (a.prices.petrol ?? Infinity) - (b.prices.petrol ?? Infinity))[0]?.prices.petrol;
 
   const handleSelectStation = useCallback((id: string) => {
     setSelectedId(id);
-    // Scroll card into view
+    setMobileView("list");
     setTimeout(() => {
-      const el = document.getElementById(`station-${id}`);
-      el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      document.getElementById(`station-${id}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, 100);
   }, []);
 
   return (
-    <div className="flex flex-col h-screen">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <Fuel className="text-blue-600" size={24} />
-          <h1 className="text-lg font-bold text-gray-900">Fuel Price Tracker</h1>
+    <div className="flex flex-col h-screen bg-slate-50">
+
+      {/* ── Header ── */}
+      <header className="bg-slate-900 px-4 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-blue-500 flex items-center justify-center">
+            <Fuel size={16} className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-sm font-bold text-white leading-none">FuelFinder</h1>
+            <p className="text-xs text-slate-400 leading-none mt-0.5">Live UK prices</p>
+          </div>
         </div>
-        {location && (
-          <button
-            onClick={getLocation}
-            className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium"
-          >
-            <LocateFixed size={16} />
-            Re-locate
-          </button>
-        )}
+        <button
+          onClick={getLocation}
+          className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+        >
+          <LocateFixed size={13} />
+          {location ? "Re-locate" : "Use my location"}
+        </button>
       </header>
 
-      {/* Controls */}
-      <div className="bg-white border-b border-gray-100 px-4 py-2 flex flex-wrap items-center gap-3 flex-shrink-0">
-        {/* Fuel type toggle */}
-        <div className="flex rounded-lg overflow-hidden border border-gray-200">
-          <button
-            onClick={() => setFuelType("petrol")}
-            className={`px-4 py-1.5 text-sm font-semibold transition-colors ${
-              fuelType === "petrol"
-                ? "bg-blue-600 text-white"
-                : "bg-white text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            Petrol
-          </button>
-          <button
-            onClick={() => setFuelType("diesel")}
-            className={`px-4 py-1.5 text-sm font-semibold transition-colors ${
-              fuelType === "diesel"
-                ? "bg-yellow-500 text-white"
-                : "bg-white text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            Diesel
-          </button>
+      {/* ── Stats bar ── */}
+      {!loading && (cheapestPetrol || cheapestDiesel) && (
+        <div className="bg-slate-800 px-4 py-2 flex gap-4 flex-shrink-0">
+          {cheapestPetrol && (
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-400" />
+              <span className="text-xs text-slate-400">Petrol from</span>
+              <span className="text-sm font-bold text-blue-400">{cheapestPetrol.toFixed(1)}p</span>
+            </div>
+          )}
+          {cheapestDiesel && (
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-amber-400" />
+              <span className="text-xs text-slate-400">Diesel from</span>
+              <span className="text-sm font-bold text-amber-400">{cheapestDiesel.toFixed(1)}p</span>
+            </div>
+          )}
+          <div className="ml-auto flex items-center gap-1.5 text-xs text-slate-500">
+            <span>{sorted.length} stations</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Controls ── */}
+      <div className="bg-white border-b border-gray-100 px-4 py-2.5 flex items-center gap-2 flex-shrink-0 flex-wrap">
+        {/* Fuel type */}
+        <div className="flex rounded-xl overflow-hidden border border-gray-200 p-0.5 bg-gray-50">
+          {(["petrol", "diesel"] as FuelType[]).map((type) => (
+            <button
+              key={type}
+              onClick={() => setFuelType(type)}
+              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-150 capitalize ${
+                fuelType === type
+                  ? type === "petrol"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "bg-amber-500 text-white shadow-sm"
+                  : "text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              {type}
+            </button>
+          ))}
         </div>
 
         {/* Sort */}
-        <div className="flex items-center gap-1.5 text-sm text-gray-600">
-          <SlidersHorizontal size={14} />
-          <span>Sort:</span>
-          <button
-            onClick={() => setSortBy("price")}
-            className={`px-2.5 py-1 rounded ${sortBy === "price" ? "bg-gray-900 text-white" : "text-gray-500 hover:text-gray-800"} text-sm font-medium`}
-          >
-            Cheapest
-          </button>
-          <button
-            onClick={() => setSortBy("distance")}
-            className={`px-2.5 py-1 rounded ${sortBy === "distance" ? "bg-gray-900 text-white" : "text-gray-500 hover:text-gray-800"} text-sm font-medium`}
-          >
-            Nearest
-          </button>
-        </div>
+        <button
+          onClick={() => setSortBy(sortBy === "price" ? "distance" : "price")}
+          className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-xl transition-colors"
+        >
+          <ArrowUpDown size={12} />
+          {sortBy === "price" ? "Cheapest first" : "Nearest first"}
+        </button>
 
         {/* Radius */}
-        <div className="flex items-center gap-2 text-sm text-gray-600 ml-auto">
-          <span>Radius:</span>
+        <div className="relative flex items-center ml-auto">
           <select
             value={radius}
             onChange={(e) => setRadius(Number(e.target.value))}
-            className="border border-gray-200 rounded px-2 py-1 text-sm"
+            className="appearance-none text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 pl-3 pr-7 py-1.5 rounded-xl cursor-pointer transition-colors focus:outline-none"
           >
             {[2, 5, 10, 20, 30].map((r) => (
-              <option key={r} value={r}>{r} km</option>
+              <option key={r} value={r}>{r} km radius</option>
             ))}
           </select>
+          <ChevronDown size={12} className="absolute right-2 text-gray-400 pointer-events-none" />
+        </div>
+
+        {/* Mobile map/list toggle */}
+        <div className="flex md:hidden rounded-xl overflow-hidden border border-gray-200 p-0.5 bg-gray-50">
+          <button
+            onClick={() => setMobileView("list")}
+            className={`px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex items-center gap-1 ${mobileView === "list" ? "bg-white shadow-sm text-gray-800" : "text-gray-400"}`}
+          >
+            <List size={12} /> List
+          </button>
+          <button
+            onClick={() => setMobileView("map")}
+            className={`px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex items-center gap-1 ${mobileView === "map" ? "bg-white shadow-sm text-gray-800" : "text-gray-400"}`}
+          >
+            <Map size={12} /> Map
+          </button>
         </div>
       </div>
 
-      {/* Body: Map + List */}
+      {/* ── Body ── */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Map */}
-        <div className="hidden md:block w-1/2 lg:w-3/5 p-3 flex-shrink-0">
+
+        {/* Map — desktop always visible, mobile conditional */}
+        <div className={`${mobileView === "map" ? "flex" : "hidden"} md:flex w-full md:w-1/2 lg:w-3/5 p-3 flex-shrink-0`}>
           {location ? (
-            <div className="w-full h-full rounded-xl overflow-hidden shadow-sm border border-gray-200">
+            <div className="w-full h-full rounded-2xl overflow-hidden shadow-sm border border-gray-200">
               <FuelMap
                 userLat={location.lat}
                 userLng={location.lng}
@@ -172,58 +199,76 @@ export default function Home() {
               />
             </div>
           ) : (
-            <div className="w-full h-full rounded-xl bg-gray-100 flex items-center justify-center text-gray-400">
-              Waiting for location…
+            <div className="w-full h-full rounded-2xl bg-slate-100 flex flex-col items-center justify-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-slate-200 flex items-center justify-center">
+                <Map size={22} className="text-slate-400" />
+              </div>
+              <p className="text-sm text-slate-400">Waiting for location…</p>
             </div>
           )}
         </div>
 
-        {/* Station list */}
-        <div ref={listRef} className="flex-1 overflow-y-auto p-3 space-y-2">
-          {/* Summary bar */}
-          {cheapest && (
-            <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 flex items-center justify-between">
-              <span className="text-sm text-green-700 font-medium">
-                Cheapest {fuelType} nearby
-              </span>
-              <span className="text-xl font-bold text-green-700">
-                {(cheapest / 10).toFixed(1)}p/L
-              </span>
-            </div>
-          )}
+        {/* Station list — desktop always visible, mobile conditional */}
+        <div
+          ref={listRef}
+          className={`${mobileView === "list" ? "flex" : "hidden"} md:flex flex-col flex-1 overflow-y-auto`}
+        >
+          <div className="p-3 space-y-2">
+            {/* Errors */}
+            {geoError && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex items-start gap-2 text-red-600 text-sm">
+                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold">Location unavailable</p>
+                  <p className="text-xs text-red-400 mt-0.5">{geoError}</p>
+                </div>
+              </div>
+            )}
+            {fetchError && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-2 text-amber-600 text-sm">
+                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold">Couldn&apos;t load prices</p>
+                  <p className="text-xs text-amber-500 mt-0.5">{fetchError}</p>
+                </div>
+              </div>
+            )}
 
-          {/* Errors */}
-          {geoError && (
-            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2 text-red-700 text-sm">
-              <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
-              {geoError}
-            </div>
-          )}
-          {fetchError && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2 text-amber-700 text-sm">
-              <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
-              {fetchError}
-            </div>
-          )}
+            {/* Skeletons while loading */}
+            {loading && Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)}
 
-          {/* Loading */}
-          {loading && (
-            <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
-              <Loader2 size={32} className="animate-spin" />
-              <p className="text-sm">Fetching live prices…</p>
-            </div>
-          )}
+            {/* Empty state */}
+            {!loading && !geoError && sorted.length === 0 && location && (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center">
+                  <TrendingDown size={24} className="text-gray-300" />
+                </div>
+                <p className="text-sm font-semibold text-gray-400">No stations found</p>
+                <p className="text-xs text-gray-300">Try increasing the radius</p>
+              </div>
+            )}
 
-          {/* No results */}
-          {!loading && !geoError && sorted.length === 0 && location && (
-            <div className="text-center py-20 text-gray-400 text-sm">
-              No {fuelType} stations found within {radius} km. Try increasing the radius.
-            </div>
-          )}
+            {/* Waiting for location */}
+            {!location && !geoError && !loading && (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center">
+                  <LocateFixed size={24} className="text-blue-300" />
+                </div>
+                <p className="text-sm font-semibold text-gray-400">Allow location access</p>
+                <p className="text-xs text-gray-300 text-center px-8">
+                  We need your location to find fuel stations near you
+                </p>
+                <button
+                  onClick={getLocation}
+                  className="mt-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-5 py-2 rounded-xl transition-colors"
+                >
+                  Allow location
+                </button>
+              </div>
+            )}
 
-          {/* Station cards */}
-          {!loading &&
-            sorted.map((station, i) => (
+            {/* Station cards */}
+            {!loading && sorted.map((station, i) => (
               <div key={station.id} id={`station-${station.id}`}>
                 <StationCard
                   station={station}
@@ -231,9 +276,14 @@ export default function Home() {
                   fuelType={fuelType}
                   isSelected={selectedId === station.id}
                   onSelect={() => handleSelectStation(station.id)}
+                  cheapestPrice={cheapestPrice}
                 />
               </div>
             ))}
+
+            {/* Bottom padding */}
+            {sorted.length > 0 && <div className="h-4" />}
+          </div>
         </div>
       </div>
     </div>

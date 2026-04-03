@@ -1,14 +1,15 @@
 "use client";
 import { FuelStation } from "@/lib/fuel-sources";
-import { MapPin, Navigation } from "lucide-react";
+import { MapPin, Navigation, TrendingDown } from "lucide-react";
 
-const BRAND_COLORS: Record<string, string> = {
-  Asda: "bg-green-600",
-  Morrisons: "bg-yellow-500",
-  Tesco: "bg-red-600",
-  Sainsburys: "bg-orange-500",
-  Jet: "bg-red-500",
-  Applegreen: "bg-green-700",
+const BRAND_COLORS: Record<string, { bg: string; text: string }> = {
+  Asda:       { bg: "bg-green-600",  text: "text-white" },
+  Morrisons:  { bg: "bg-yellow-500", text: "text-white" },
+  Tesco:      { bg: "bg-red-600",    text: "text-white" },
+  Sainsburys: { bg: "bg-orange-500", text: "text-white" },
+  "Sainsbury's": { bg: "bg-orange-500", text: "text-white" },
+  Jet:        { bg: "bg-red-700",    text: "text-white" },
+  Applegreen: { bg: "bg-green-700",  text: "text-white" },
 };
 
 interface Props {
@@ -17,79 +18,93 @@ interface Props {
   fuelType: "petrol" | "diesel";
   isSelected: boolean;
   onSelect: () => void;
+  cheapestPrice?: number;
 }
 
-export default function StationCard({ station, rank, fuelType, isSelected, onSelect }: Props) {
+export default function StationCard({ station, rank, fuelType, isSelected, onSelect, cheapestPrice }: Props) {
   const price = station.prices[fuelType];
-  const brandColor = BRAND_COLORS[station.brand] ?? "bg-gray-600";
+  const brand = BRAND_COLORS[station.brand] ?? { bg: "bg-slate-600", text: "text-white" };
+  const isCheapest = rank === 1;
+  const savings = price && cheapestPrice && price > cheapestPrice
+    ? (price - cheapestPrice).toFixed(1)
+    : null;
 
   const openMaps = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.open(
-      `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`,
-      "_blank"
-    );
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`, "_blank");
   };
 
   return (
     <div
       onClick={onSelect}
-      className={`cursor-pointer rounded-xl border p-4 transition-all duration-200 ${
+      className={`group cursor-pointer rounded-2xl border transition-all duration-200 overflow-hidden ${
         isSelected
-          ? "border-blue-500 bg-blue-50 shadow-md"
-          : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm"
+          ? "border-blue-400 shadow-lg shadow-blue-100 bg-white"
+          : "border-gray-100 bg-white hover:border-gray-300 hover:shadow-md"
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-3 min-w-0">
-          {/* Rank badge */}
-          <div
-            className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-              rank === 1 ? "bg-green-500" : rank === 2 ? "bg-blue-500" : "bg-gray-400"
-            }`}
-          >
-            {rank}
-          </div>
-          {/* Brand pill */}
-          <span
-            className={`flex-shrink-0 px-2 py-0.5 rounded text-white text-xs font-semibold ${brandColor}`}
-          >
-            {station.brand}
-          </span>
-          {/* Name */}
-          <p className="text-sm font-medium text-gray-800 truncate">{station.name}</p>
+      {/* Cheapest banner */}
+      {isCheapest && (
+        <div className="bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-1.5 flex items-center gap-1.5">
+          <TrendingDown size={13} className="text-white" />
+          <span className="text-xs font-semibold text-white tracking-wide uppercase">Cheapest nearby</span>
         </div>
+      )}
 
-        {/* Price */}
-        {price ? (
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          {/* Left: rank + brand + name */}
+          <div className="flex items-start gap-3 min-w-0">
+            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+              rank === 1 ? "bg-green-100 text-green-700" :
+              rank === 2 ? "bg-blue-100 text-blue-700" :
+              rank === 3 ? "bg-orange-100 text-orange-700" :
+              "bg-gray-100 text-gray-500"
+            }`}>
+              {rank}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${brand.bg} ${brand.text}`}>
+                  {station.brand}
+                </span>
+              </div>
+              <p className="mt-1 text-sm font-semibold text-gray-800 truncate">{station.name}</p>
+              <div className="flex items-center gap-1 mt-0.5 text-xs text-gray-400">
+                <MapPin size={11} />
+                <span className="truncate">{station.address}{station.postcode ? `, ${station.postcode}` : ""}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: price + distance */}
           <div className="flex-shrink-0 text-right">
-            <span className="text-2xl font-bold text-gray-900">
-              {price.toFixed(1)}
-            </span>
-            <span className="text-xs text-gray-500">p/L</span>
+            {price ? (
+              <>
+                <div className="flex items-baseline justify-end gap-0.5">
+                  <span className={`text-2xl font-black ${isCheapest ? "text-green-600" : "text-gray-900"}`}>
+                    {price.toFixed(1)}
+                  </span>
+                  <span className="text-xs text-gray-400 font-medium">p/L</span>
+                </div>
+                {savings && (
+                  <p className="text-xs text-red-400 font-medium">+{savings}p vs cheapest</p>
+                )}
+              </>
+            ) : (
+              <span className="text-sm text-gray-300">N/A</span>
+            )}
+            <div className="mt-1 flex items-center justify-end gap-2">
+              <span className="text-xs font-medium text-gray-400">{station.distance?.toFixed(1)} km</span>
+              <button
+                onClick={openMaps}
+                className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-semibold transition-colors"
+              >
+                <Navigation size={11} />
+                Go
+              </button>
+            </div>
           </div>
-        ) : (
-          <span className="text-sm text-gray-400">N/A</span>
-        )}
-      </div>
-
-      <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-        <div className="flex items-center gap-1 truncate">
-          <MapPin size={12} />
-          <span className="truncate">
-            {station.address}
-            {station.postcode ? ` · ${station.postcode}` : ""}
-          </span>
-        </div>
-        <div className="flex items-center gap-3 flex-shrink-0 ml-2">
-          <span className="font-medium">{station.distance?.toFixed(1)} km</span>
-          <button
-            onClick={openMaps}
-            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium"
-          >
-            <Navigation size={12} />
-            Go
-          </button>
         </div>
       </div>
     </div>
