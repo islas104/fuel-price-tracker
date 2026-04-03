@@ -16,17 +16,24 @@ type SortBy   = "distance" | "price";
 type View     = "list" | "map";
 
 export default function Home() {
-  const [location,   setLocation]   = useState<{ lat: number; lng: number } | null>(null);
-  const [stations,   setStations]   = useState<FuelStation[]>([]);
-  const [fuelType,   setFuelType]   = useState<FuelType>("petrol");
-  const [sortBy,     setSortBy]     = useState<SortBy>("price");
-  const [radius,     setRadius]     = useState(10);
-  const [loading,    setLoading]    = useState(false);
-  const [geoError,   setGeoError]   = useState<string | null>(null);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [mobileView, setMobileView] = useState<View>("list");
+  const [location,      setLocation]      = useState<{ lat: number; lng: number } | null>(null);
+  const [stations,      setStations]      = useState<FuelStation[]>([]);
+  const [fuelType,      setFuelType]      = useState<FuelType>("petrol");
+  const [sortBy,        setSortBy]        = useState<SortBy>("price");
+  const [radius,        setRadius]        = useState(10);
+  const [debouncedRadius, setDebouncedRadius] = useState(10);
+  const [loading,       setLoading]       = useState(false);
+  const [geoError,      setGeoError]      = useState<string | null>(null);
+  const [fetchError,    setFetchError]    = useState<string | null>(null);
+  const [selectedId,    setSelectedId]    = useState<string | null>(null);
+  const [mobileView,    setMobileView]    = useState<View>("list");
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Debounce radius so fast changes don't fire multiple API calls
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedRadius(radius), 400);
+    return () => clearTimeout(t);
+  }, [radius]);
 
   const getLocation = useCallback(() => {
     setGeoError(null);
@@ -44,12 +51,12 @@ export default function Home() {
     if (!location) return;
     setLoading(true);
     setFetchError(null);
-    fetch(`/api/fuel-prices?lat=${location.lat}&lng=${location.lng}&radius=${radius}`)
+    fetch(`/api/fuel-prices?lat=${location.lat}&lng=${location.lng}&radius=${debouncedRadius}`)
       .then((r) => r.json())
       .then((d) => { if (d.error) throw new Error(d.error); setStations(d.stations ?? []); })
       .catch((e) => setFetchError(e.message))
       .finally(() => setLoading(false));
-  }, [location, radius]);
+  }, [location, debouncedRadius]);
 
   const sorted = [...stations]
     .filter((s) => s.prices[fuelType] !== undefined)
