@@ -189,7 +189,7 @@ export default function Home() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* Map — full width on mobile when active, 60% on desktop */}
-        <div className={`${mobileView === "map" ? "flex" : "hidden"} md:flex md:w-1/2 lg:w-3/5 flex-col flex-shrink-0 p-2.5`}>
+        <div className={`${mobileView === "map" ? "flex flex-1" : "hidden"} md:flex md:flex-none md:w-1/2 lg:w-3/5 flex-col p-2.5`}>
           {location ? (
             <div className="flex-1 rounded-2xl overflow-hidden shadow-sm border border-gray-200">
               <FuelMap
