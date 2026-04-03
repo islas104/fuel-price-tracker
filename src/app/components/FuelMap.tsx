@@ -83,13 +83,13 @@ export default function FuelMap({ userLat, userLng, stations, fuelType, selected
 
         const icon = L.divIcon({
           className: "",
-          html: `<div style="background:${color};color:#fff;border-radius:20px;padding:3px 7px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid #fff;">${price ? (price / 10).toFixed(1) + "p" : station.brand}</div>`,
+          html: `<div style="background:${color};color:#fff;border-radius:20px;padding:3px 7px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid #fff;">${price ? price.toFixed(1) + "p" : station.brand}</div>`,
           iconAnchor: [20, 12],
         });
 
         const marker = L.marker([station.lat, station.lng], { icon })
           .addTo(mapInstanceRef.current)
-          .bindPopup(`<b>${station.brand}</b><br>${station.name}<br>${price ? `${fuelType === "petrol" ? "Petrol" : "Diesel"}: ${(price / 10).toFixed(1)}p/L` : "Price unavailable"}`)
+          .bindPopup(`<b>${station.brand}</b><br>${station.name}<br>${price ? `${fuelType === "petrol" ? "Petrol" : "Diesel"}: ${price.toFixed(1)}p/L` : "Price unavailable"}`)
           .on("click", () => onSelectStation(station.id));
 
         markersRef.current.push(marker);

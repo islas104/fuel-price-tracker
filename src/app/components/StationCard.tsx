@@ -64,7 +64,7 @@ export default function StationCard({ station, rank, fuelType, isSelected, onSel
         {price ? (
           <div className="flex-shrink-0 text-right">
             <span className="text-2xl font-bold text-gray-900">
-              {(price / 10).toFixed(1)}
+              {price.toFixed(1)}
             </span>
             <span className="text-xs text-gray-500">p/L</span>
           </div>

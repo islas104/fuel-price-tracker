@@ -7,7 +7,7 @@ export interface FuelStation {
   lat: number;
   lng: number;
   prices: {
-    petrol?: number; // pence per litre (e.g. 1489 = 148.9p)
+    petrol?: number; // pence per litre e.g. 149.9 = 149.9p/L
     diesel?: number;
   };
   distance?: number; // km from user
