@@ -44,42 +44,37 @@ export function haversineDistance(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function normaliseStation(brand: string, raw: any): FuelStation | null {
   try {
-    const lat = parseFloat(raw.location?.lat ?? raw.lat ?? raw.latitude ?? "0");
+    // Location: CMA feeds use location.latitude / location.longitude (sometimes as strings)
+    const lat = parseFloat(
+      raw.location?.latitude ?? raw.location?.lat ?? raw.lat ?? raw.latitude ?? "0"
+    );
     const lng = parseFloat(
-      raw.location?.lng ?? raw.location?.lon ?? raw.lng ?? raw.lon ?? raw.longitude ?? "0"
+      raw.location?.longitude ?? raw.location?.lng ?? raw.location?.lon ??
+      raw.lng ?? raw.lon ?? raw.longitude ?? "0"
     );
     if (!lat || !lng) return null;
 
     const prices: FuelStation["prices"] = {};
 
-    // Most retailers: array of { fuel_type, price }
-    const fuelList: { fuel_type?: string; price?: number }[] =
-      raw.prices ?? raw.fuels ?? raw.fuel_prices ?? [];
-
-    for (const f of fuelList) {
-      const type = (f.fuel_type ?? "").toUpperCase();
-      const ppl = f.price ?? 0;
-      // E10 / Unleaded = petrol
-      if (["E10", "UNLEADED", "U91", "PETROL", "E5"].some((t) => type.includes(t)))
-        prices.petrol = ppl;
-      // B7 / Diesel
-      if (["B7", "DIESEL"].some((t) => type.includes(t)))
-        prices.diesel = ppl;
+    // CMA format: prices is a plain object { "E10": 150.9, "B7": 178.7 }
+    if (raw.prices && typeof raw.prices === "object" && !Array.isArray(raw.prices)) {
+      for (const [key, val] of Object.entries(raw.prices as Record<string, number>)) {
+        const t = key.toUpperCase();
+        if (["E10", "E5", "UNLEADED", "PETROL", "U91"].some((k) => t.includes(k)))
+          prices.petrol = prices.petrol ?? val;
+        if (["B7", "DIESEL"].some((k) => t.includes(k)))
+          prices.diesel = val;
+      }
     }
-
-    // Fallback: some retailers use top-level keys
-    if (!prices.petrol && raw.unleaded) prices.petrol = raw.unleaded;
-    if (!prices.petrol && raw.petrol)   prices.petrol = raw.petrol;
-    if (!prices.diesel && raw.diesel)   prices.diesel = raw.diesel;
 
     if (!prices.petrol && !prices.diesel) return null;
 
     return {
-      id: `${brand}-${raw.site_id ?? raw.id ?? lat}-${lng}`,
+      id:          `${brand}-${raw.site_id ?? raw.id ?? lat}-${lng}`,
       brand,
-      name:    raw.site_name ?? raw.name ?? brand,
-      address: raw.address ?? raw.site_address ?? "",
-      postcode: raw.postcode ?? "",
+      name:        raw.site_name ?? raw.name ?? brand,
+      address:     raw.address ?? raw.site_address ?? "",
+      postcode:    raw.postcode ?? "",
       lat,
       lng,
       prices,
