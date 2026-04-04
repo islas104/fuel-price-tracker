@@ -25,7 +25,13 @@ export const FUEL_SOURCES = [
   { brand: "Ascona",     url: "https://fuelprices.asconagroup.co.uk/newfuel.json",                                          mobileUA: false, scraperApi: false },
   // Requires mobile User-Agent
   { brand: "BP",         url: "https://www.bp.com/en_gb/united-kingdom/home/fuelprices/fuel_prices_data.json",             mobileUA: true,  scraperApi: false },
+  // Motor Fuel Group — 1,200+ stations (BP, Esso, Texaco, Shell-branded sites)
+  { brand: "MFG",        url: "https://fuel.motorfuelgroup.com/fuel_prices_data.json",                                     mobileUA: false, scraperApi: false },
+  // Rontec — 265 stations
+  { brand: "Rontec",     url: "https://www.rontec-servicestations.co.uk/fuel-prices/data/fuel_prices_data.json",           mobileUA: false, scraperApi: false },
   // Tesco: Akamai blocks all server-side requests including ScraperAPI free tier
+  // Shell: HTTP 403 even with mobile User-Agent
+  // Esso: HTTP 404 on all known URLs
 ];
 
 // Returns distance in miles

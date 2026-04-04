@@ -24,6 +24,8 @@ const BRAND_COLORS: Record<string, string> = {
   Ascona:        "#1d4ed8",
   Gulf:          "#f97316",
   Texaco:        "#dc2626",
+  MFG:           "#4338ca",
+  Rontec:        "#0e7490",
 };
 
 export default function FuelMap({ userLat, userLng, stations, fuelType, selectedId, onSelectStation, isVisible }: Props) {

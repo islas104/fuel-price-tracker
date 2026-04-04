@@ -14,6 +14,8 @@ const BRAND_COLORS: Record<string, { bg: string; text: string }> = {
   Ascona:        { bg: "bg-blue-700",   text: "text-white" },
   Gulf:          { bg: "bg-orange-600", text: "text-white" },
   Texaco:        { bg: "bg-red-600",    text: "text-white" },
+  MFG:           { bg: "bg-indigo-600", text: "text-white" },
+  Rontec:        { bg: "bg-cyan-700",   text: "text-white" },
 };
 
 interface Props {
