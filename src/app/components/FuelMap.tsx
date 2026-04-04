@@ -30,62 +30,93 @@ const BRAND_COLORS: Record<string, string> = {
   SGN:           "#7e22ce",
 };
 
+// Module-level promise — Leaflet is only downloaded once, even across remounts
+let leafletPromise: Promise<typeof import("leaflet")> | null = null;
+function loadLeaflet() {
+  if (!leafletPromise) leafletPromise = import("leaflet");
+  return leafletPromise;
+}
+
 export default function FuelMap({ userLat, userLng, stations, fuelType, selectedId, onSelectStation, isVisible }: Props) {
   const mapRef         = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapInstanceRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const markersRef     = useRef<any[]>([]);
+  const markerLayerRef = useRef<any>(null);     // LayerGroup — clearLayers() is one batch op
+  const destroyedRef   = useRef(false);
+  const retryTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Initialise map once — cleanup on unmount so React strict mode doesn't double-init
+  // Initialise map once — retries once on failure, safe against React Strict Mode double-invoke
   useEffect(() => {
-    if (!mapRef.current) return;
+    destroyedRef.current = false;
 
-    let destroyed = false;
+    const init = async () => {
+      if (!mapRef.current || mapInstanceRef.current || destroyedRef.current) return;
 
-    import("leaflet").then((L) => {
-      if (destroyed || !mapRef.current || mapInstanceRef.current) return;
+      try {
+        const L = await loadLeaflet();
+        if (destroyedRef.current || !mapRef.current || mapInstanceRef.current) return;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-        iconUrl:       "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-        shadowUrl:     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-      });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        delete (L.Icon.Default.prototype as any)._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+          iconUrl:       "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+          shadowUrl:     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+        });
 
-      const map = L.map(mapRef.current).setView([userLat, userLng], 13);
-      mapInstanceRef.current = map;
+        const map = L.map(mapRef.current).setView([userLat, userLng], 13);
+        mapInstanceRef.current = map;
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
-        maxZoom: 19,
-      }).addTo(map);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+          maxZoom: 19,
+        }).addTo(map);
 
-      L.circleMarker([userLat, userLng], {
-        radius: 10, fillColor: "#3b82f6", color: "#fff",
-        weight: 2, opacity: 1, fillOpacity: 0.9,
-      }).addTo(map).bindPopup("Your location");
-    });
+        L.circleMarker([userLat, userLng], {
+          radius: 10, fillColor: "#3b82f6", color: "#fff",
+          weight: 2, opacity: 1, fillOpacity: 0.9,
+        }).addTo(map).bindPopup("Your location");
+
+        // LayerGroup owns all station markers — faster bulk clear than iterating an array
+        markerLayerRef.current = L.layerGroup().addTo(map);
+      } catch (err) {
+        if (process.env.NODE_ENV === "development") console.error("[FuelMap] init error:", err);
+        if (!destroyedRef.current) {
+          retryTimerRef.current = setTimeout(init, 2000);
+        }
+      }
+    };
+
+    init();
 
     return () => {
-      destroyed = true;
+      destroyedRef.current = true;
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
-        markersRef.current = [];
+        markerLayerRef.current = null;
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Update markers when stations or fuelType changes
+  // Rebuild markers when stations or fuelType changes
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
+    if (!mapInstanceRef.current || !markerLayerRef.current) return;
 
-    import("leaflet").then((L) => {
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
+    if (!stations.length) {
+      markerLayerRef.current.clearLayers();
+      return;
+    }
+
+    loadLeaflet().then((L) => {
+      if (!markerLayerRef.current) return;
+
+      const t0 = performance.now();
+
+      markerLayerRef.current.clearLayers();
 
       stations.forEach((station) => {
         const price = station.prices[fuelType];
@@ -97,23 +128,27 @@ export default function FuelMap({ userLat, userLng, stations, fuelType, selected
           iconAnchor: [20, 12],
         });
 
-        const marker = L.marker([station.lat, station.lng], { icon })
-          .addTo(mapInstanceRef.current)
+        L.marker([station.lat, station.lng], { icon })
           .bindPopup(`<b>${station.brand}</b><br>${station.name}<br>${price ? `${fuelType === "petrol" ? "Petrol" : "Diesel"}: ${price.toFixed(1)}p/L` : "Price unavailable"}`)
-          .on("click", () => onSelectStation(station.id));
-
-        markersRef.current.push(marker);
+          .on("click", () => onSelectStation(station.id))
+          .addTo(markerLayerRef.current);
       });
+
+      if (process.env.NODE_ENV === "development") {
+        console.debug(`[FuelMap] ${stations.length} markers in ${(performance.now() - t0).toFixed(1)}ms`);
+      }
     });
   }, [stations, fuelType, onSelectStation]);
 
-  // Recalculate size when map becomes visible (hidden → shown on mobile)
+  // Fix blank tiles when container transitions from hidden → visible on mobile
   useEffect(() => {
     if (!isVisible || !mapInstanceRef.current) return;
-    setTimeout(() => mapInstanceRef.current?.invalidateSize(), 50);
+    // rAF fires after the next paint — more reliable than a fixed setTimeout
+    const raf = requestAnimationFrame(() => mapInstanceRef.current?.invalidateSize());
+    return () => cancelAnimationFrame(raf);
   }, [isVisible]);
 
-  // Pan to selected station
+  // Pan/zoom to selected station
   useEffect(() => {
     if (!selectedId || !mapInstanceRef.current) return;
     const station = stations.find((s) => s.id === selectedId);
