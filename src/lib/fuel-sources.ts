@@ -29,9 +29,15 @@ export const FUEL_SOURCES = [
   { brand: "MFG",        url: "https://fuel.motorfuelgroup.com/fuel_prices_data.json",                                     mobileUA: false, scraperApi: false },
   // Rontec — 265 stations
   { brand: "Rontec",     url: "https://www.rontec-servicestations.co.uk/fuel-prices/data/fuel_prices_data.json",           mobileUA: false, scraperApi: false },
+  // Moto — 50 motorway service stations
+  { brand: "Moto",       url: "https://moto-way.com/fuel-price/fuel_prices.json",                                          mobileUA: false, scraperApi: false },
+  // SGN Retail — 150 stations
+  { brand: "SGN",        url: "https://www.sgnretail.uk/files/data/SGN_daily_fuel_prices.json",                            mobileUA: false, scraperApi: false },
   // Tesco: Akamai blocks all server-side requests including ScraperAPI free tier
   // Shell: HTTP 403 even with mobile User-Agent
-  // Esso: HTTP 404 on all known URLs
+  // Esso (direct): stale feed (~12 days old) — excluded
+  // Karan Retail: expired SSL certificate — excluded
+  // Morrisons: feed only returns 1 station — excluded
 ];
 
 // Returns distance in miles

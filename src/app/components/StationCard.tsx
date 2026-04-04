@@ -16,6 +16,8 @@ const BRAND_COLORS: Record<string, { bg: string; text: string }> = {
   Texaco:        { bg: "bg-red-600",    text: "text-white" },
   MFG:           { bg: "bg-indigo-600", text: "text-white" },
   Rontec:        { bg: "bg-cyan-700",   text: "text-white" },
+  Moto:          { bg: "bg-yellow-500", text: "text-slate-900" },
+  SGN:           { bg: "bg-purple-700", text: "text-white" },
 };
 
 interface Props {

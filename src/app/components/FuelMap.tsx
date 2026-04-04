@@ -26,6 +26,8 @@ const BRAND_COLORS: Record<string, string> = {
   Texaco:        "#dc2626",
   MFG:           "#4338ca",
   Rontec:        "#0e7490",
+  Moto:          "#eab308",
+  SGN:           "#7e22ce",
 };
 
 export default function FuelMap({ userLat, userLng, stations, fuelType, selectedId, onSelectStation, isVisible }: Props) {
