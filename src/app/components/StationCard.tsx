@@ -11,6 +11,8 @@ const BRAND_COLORS: Record<string, { bg: string; text: string }> = {
   Jet:           { bg: "bg-red-700",    text: "text-white" },
   Applegreen:    { bg: "bg-green-700",  text: "text-white" },
   BP:            { bg: "bg-green-800",  text: "text-white" },
+  Shell:         { bg: "bg-yellow-400", text: "text-slate-900" },
+  Esso:          { bg: "bg-red-600",    text: "text-white" },
   Ascona:        { bg: "bg-blue-700",   text: "text-white" },
   Gulf:          { bg: "bg-orange-600", text: "text-white" },
   Texaco:        { bg: "bg-red-600",    text: "text-white" },
@@ -19,6 +21,19 @@ const BRAND_COLORS: Record<string, { bg: string; text: string }> = {
   Moto:          { bg: "bg-yellow-500", text: "text-slate-900" },
   SGN:           { bg: "bg-purple-700", text: "text-white" },
 };
+
+// Parses "DD/MM/YYYY HH:MM:SS" → human-readable freshness label
+function formatLastUpdated(raw?: string): string | null {
+  if (!raw) return null;
+  const match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!match) return null;
+  const [, dd, mm, yyyy] = match;
+  const updated = new Date(`${yyyy}-${mm}-${dd}`);
+  const diffDays = Math.floor((Date.now() - updated.getTime()) / 86_400_000);
+  if (diffDays === 0) return "Updated today";
+  if (diffDays === 1) return "Updated yesterday";
+  return `Updated ${diffDays}d ago`;
+}
 
 interface Props {
   station: FuelStation;
@@ -35,6 +50,7 @@ export default function StationCard({ station, rank, fuelType, isSelected, onSel
   const isCheapest = rank === 1;
   const savings = price && cheapestPrice && price > cheapestPrice
     ? (price - cheapestPrice).toFixed(1) : null;
+  const freshness = formatLastUpdated(station.lastUpdated);
 
   const openMaps = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -85,6 +101,9 @@ export default function StationCard({ station, rank, fuelType, isSelected, onSel
                   {station.address}{station.postcode ? `, ${station.postcode}` : ""}
                 </span>
               </div>
+              {freshness && (
+                <p className="text-[10px] text-gray-300 mt-0.5">{freshness}</p>
+              )}
             </div>
           </div>
 

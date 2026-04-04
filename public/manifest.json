@@ -1,0 +1,16 @@
+{
+  "name": "FuelFinder",
+  "short_name": "FuelFinder",
+  "description": "Find the cheapest petrol and diesel near you with live UK prices.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icon",
+      "sizes": "32x32",
+      "type": "image/png"
+    }
+  ]
+}

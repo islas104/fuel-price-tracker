@@ -85,10 +85,15 @@ export function normaliseStation(brand: string, raw: any): FuelStation | null {
 
     if (!prices.petrol && !prices.diesel) return null;
 
+    // Prefer the raw brand (e.g. MFG stations carry BP/Shell/Esso/Texaco branding)
+    // Keep source brand in the ID to avoid collisions across networks
+    const displayBrand =
+      typeof raw.brand === "string" && raw.brand.trim() ? raw.brand.trim() : brand;
+
     return {
       id:          `${brand}-${raw.site_id ?? raw.id ?? lat}-${lng}`,
-      brand,
-      name:        raw.site_name ?? raw.name ?? brand,
+      brand:       displayBrand,
+      name:        raw.site_name ?? raw.name ?? displayBrand,
       address:     raw.address ?? raw.site_address ?? "",
       postcode:    raw.postcode ?? "",
       lat,

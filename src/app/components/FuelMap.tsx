@@ -21,6 +21,8 @@ const BRAND_COLORS: Record<string, string> = {
   Jet:           "#ef4444",
   Applegreen:    "#15803d",
   BP:            "#006B3F",
+  Shell:         "#f5c400",
+  Esso:          "#e60028",
   Ascona:        "#1d4ed8",
   Gulf:          "#f97316",
   Texaco:        "#dc2626",
@@ -30,11 +32,18 @@ const BRAND_COLORS: Record<string, string> = {
   SGN:           "#7e22ce",
 };
 
-// Module-level promise — Leaflet is only downloaded once, even across remounts
+// Module-level promises — loaded once, reused across remounts
 let leafletPromise: Promise<typeof import("leaflet")> | null = null;
 function loadLeaflet() {
   if (!leafletPromise) leafletPromise = import("leaflet");
   return leafletPromise;
+}
+
+let mcPromise: Promise<void> | null = null;
+function loadMarkerCluster() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (!mcPromise) mcPromise = import("leaflet.markercluster" as any).then(() => {});
+  return mcPromise;
 }
 
 export default function FuelMap({ userLat, userLng, stations, fuelType, selectedId, onSelectStation, isVisible }: Props) {
@@ -42,7 +51,7 @@ export default function FuelMap({ userLat, userLng, stations, fuelType, selected
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapInstanceRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const markerLayerRef = useRef<any>(null);     // LayerGroup — clearLayers() is one batch op
+  const markerLayerRef = useRef<any>(null);
   const destroyedRef   = useRef(false);
   const retryTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -54,7 +63,7 @@ export default function FuelMap({ userLat, userLng, stations, fuelType, selected
       if (!mapRef.current || mapInstanceRef.current || destroyedRef.current) return;
 
       try {
-        const L = await loadLeaflet();
+        const [L] = await Promise.all([loadLeaflet(), loadMarkerCluster()]);
         if (destroyedRef.current || !mapRef.current || mapInstanceRef.current) return;
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -78,8 +87,14 @@ export default function FuelMap({ userLat, userLng, stations, fuelType, selected
           weight: 2, opacity: 1, fillOpacity: 0.9,
         }).addTo(map).bindPopup("Your location");
 
-        // LayerGroup owns all station markers — faster bulk clear than iterating an array
-        markerLayerRef.current = L.layerGroup().addTo(map);
+        // MarkerClusterGroup — groups overlapping pins in dense areas
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        markerLayerRef.current = (L as any).markerClusterGroup({
+          maxClusterRadius: 50,
+          showCoverageOnHover: false,
+          zoomToBoundsOnClick: true,
+          disableClusteringAtZoom: 15,
+        }).addTo(map);
       } catch (err) {
         if (process.env.NODE_ENV === "development") console.error("[FuelMap] init error:", err);
         if (!destroyedRef.current) {
@@ -111,7 +126,7 @@ export default function FuelMap({ userLat, userLng, stations, fuelType, selected
       return;
     }
 
-    loadLeaflet().then((L) => {
+    Promise.all([loadLeaflet(), loadMarkerCluster()]).then(([L]) => {
       if (!markerLayerRef.current) return;
 
       const t0 = performance.now();
@@ -143,7 +158,6 @@ export default function FuelMap({ userLat, userLng, stations, fuelType, selected
   // Fix blank tiles when container transitions from hidden → visible on mobile
   useEffect(() => {
     if (!isVisible || !mapInstanceRef.current) return;
-    // rAF fires after the next paint — more reliable than a fixed setTimeout
     const raf = requestAnimationFrame(() => mapInstanceRef.current?.invalidateSize());
     return () => cancelAnimationFrame(raf);
   }, [isVisible]);

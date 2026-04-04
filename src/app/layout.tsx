@@ -7,6 +7,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "FuelFinder — Live UK Fuel Prices",
   description: "Find the cheapest petrol and diesel near you with live UK prices.",
+  manifest: "/manifest.json",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "FuelFinder" },
   openGraph: {
     title: "FuelFinder — Live UK Fuel Prices",
