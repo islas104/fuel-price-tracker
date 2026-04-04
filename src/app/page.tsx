@@ -37,10 +37,23 @@ export default function Home() {
   const getLocation = useCallback(() => {
     setGeoError(null);
     if (!navigator.geolocation) { setGeoError("Geolocation not supported."); return; }
+
+    // First get a fast coarse fix (network/WiFi), then try to refine with GPS
     navigator.geolocation.getCurrentPosition(
       (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      (err) => setGeoError(`Location denied: ${err.message}`),
-      { enableHighAccuracy: true, timeout: 10000 }
+      (err) => setGeoError(
+        err.code === 1
+          ? "Location access denied. Please allow location in your browser settings."
+          : "Couldn't get your location. Please try again."
+      ),
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+    );
+
+    // Then silently upgrade to a more accurate fix if available
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => { /* ignore high-accuracy failure — we already have a coarse fix */ },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   }, []);
 
@@ -50,11 +63,15 @@ export default function Home() {
     if (!location) return;
     setLoading(true);
     setFetchError(null);
-    fetch(`/api/fuel-prices?lat=${location.lat}&lng=${location.lng}&radius=${debouncedRadius}`)
+    const controller = new AbortController();
+    fetch(`/api/fuel-prices?lat=${location.lat}&lng=${location.lng}&radius=${debouncedRadius}`, {
+      signal: controller.signal,
+    })
       .then((r) => r.json())
       .then((d) => { if (d.error) throw new Error(d.error); setStations(d.stations ?? []); })
-      .catch((e) => setFetchError(e.message))
+      .catch((e) => { if (e.name !== "AbortError") setFetchError(e.message); })
       .finally(() => setLoading(false));
+    return () => controller.abort();
   }, [location, debouncedRadius]);
 
   const sorted = [...stations]
@@ -178,7 +195,7 @@ export default function Home() {
             className="appearance-none text-xs font-semibold text-gray-600 bg-gray-50 border border-gray-200 pl-3 pr-7 py-2 rounded-xl cursor-pointer focus:outline-none min-h-[36px]"
           >
             {[2, 5, 10, 20, 30].map((r) => (
-              <option key={r} value={r}>{r} km</option>
+              <option key={r} value={r}>{r} mi</option>
             ))}
           </select>
           <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />

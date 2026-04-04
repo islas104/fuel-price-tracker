@@ -16,19 +16,14 @@ const getAllStations = unstable_cache(
   async (): Promise<FuelStation[]> => {
     const results = await Promise.allSettled(
       FUEL_SOURCES.map(async (source) => {
-        const scraperKey = process.env.SCRAPER_API_KEY;
-        const fetchUrl = source.scraperApi && scraperKey
-          ? `https://api.scraperapi.com/?api_key=${scraperKey}&url=${encodeURIComponent(source.url)}`
-          : source.url;
-
-        const res = await fetch(fetchUrl, {
+        const res = await fetch(source.url, {
           headers: {
             "User-Agent": source.mobileUA
               ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
               : "FuelPriceTracker/1.0",
             "Accept": "application/json, text/plain, */*",
           },
-          signal: AbortSignal.timeout(30_000), // ScraperAPI needs more time
+          signal: AbortSignal.timeout(10_000),
         });
         if (!res.ok) throw new Error(`${source.brand}: HTTP ${res.status}`);
 

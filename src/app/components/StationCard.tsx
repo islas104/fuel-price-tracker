@@ -100,7 +100,7 @@ export default function StationCard({ station, rank, fuelType, isSelected, onSel
               <span className="text-xs text-red-400 font-semibold">+{savings}p</span>
             )}
             <div className="flex items-center gap-2.5 mt-0.5">
-              <span className="text-xs text-gray-400">{station.distance?.toFixed(1)} km</span>
+              <span className="text-xs text-gray-400">{station.distance?.toFixed(1)} mi</span>
               <button
                 onClick={openMaps}
                 className="flex items-center gap-1 text-xs font-bold text-blue-500 active:text-blue-700 py-1 px-2 -mr-1 rounded-lg active:bg-blue-50 transition-colors"

@@ -25,15 +25,15 @@ export const FUEL_SOURCES = [
   { brand: "Ascona",     url: "https://fuelprices.asconagroup.co.uk/newfuel.json",                                          mobileUA: false, scraperApi: false },
   // Requires mobile User-Agent
   { brand: "BP",         url: "https://www.bp.com/en_gb/united-kingdom/home/fuelprices/fuel_prices_data.json",             mobileUA: true,  scraperApi: false },
-  // Requires ScraperAPI (Akamai bot protection)
-  { brand: "Tesco",      url: "https://www.tesco.com/store-locator/fuel-prices/fuel.json",                                  mobileUA: false, scraperApi: true  },
+  // Tesco: Akamai blocks all server-side requests including ScraperAPI free tier
 ];
 
+// Returns distance in miles
 export function haversineDistance(
   lat1: number, lon1: number,
   lat2: number, lon2: number
 ): number {
-  const R = 6371;
+  const R = 3958.8; // Earth radius in miles
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
