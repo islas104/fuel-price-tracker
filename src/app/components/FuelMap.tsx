@@ -41,8 +41,14 @@ function loadLeaflet() {
 
 let mcPromise: Promise<void> | null = null;
 function loadMarkerCluster() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (!mcPromise) mcPromise = import("leaflet.markercluster" as any).then(() => {});
+  if (!mcPromise) {
+    mcPromise = import(
+      /* webpackChunkName: "leaflet-markercluster" */
+      "leaflet.markercluster"
+    ).then(() => {}).catch(() => {
+      // Plugin failed to load — map still works via LayerGroup fallback
+    });
+  }
   return mcPromise;
 }
 
