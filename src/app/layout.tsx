@@ -8,6 +8,16 @@ export const metadata: Metadata = {
   title: "FuelFinder — Live UK Fuel Prices",
   description: "Find the cheapest petrol and diesel near you with live UK prices.",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "FuelFinder" },
+  openGraph: {
+    title: "FuelFinder — Live UK Fuel Prices",
+    description: "Find the cheapest petrol and diesel near you. Live prices from Asda, BP, Sainsbury's, MFG and more.",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "FuelFinder — Live UK Fuel Prices",
+    description: "Find the cheapest petrol and diesel near you. Live prices from Asda, BP, Sainsbury's, MFG and more.",
+  },
 };
 
 export const viewport: Viewport = {

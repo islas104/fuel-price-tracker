@@ -55,7 +55,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const lat    = parseFloat(searchParams.get("lat")    ?? "0");
   const lng    = parseFloat(searchParams.get("lng")    ?? "0");
-  const radius = parseFloat(searchParams.get("radius") ?? "10");
+  const radius = Math.min(parseFloat(searchParams.get("radius") ?? "10"), 30); // cap at 30 miles
+  const limit  = Math.min(parseInt(searchParams.get("limit")   ?? "50", 10), 100); // max 100 results
 
   if (!lat || !lng) {
     return NextResponse.json({ error: "lat and lng are required" }, { status: 400 });
@@ -66,7 +67,8 @@ export async function GET(req: NextRequest) {
   const nearby = all
     .map((s)  => ({ ...s, distance: haversineDistance(lat, lng, s.lat, s.lng) }))
     .filter((s) => s.distance <= radius)
-    .sort((a, b)  => a.distance - b.distance);
+    .sort((a, b)  => a.distance - b.distance)
+    .slice(0, limit);
 
   return NextResponse.json(
     { stations: nearby, count: nearby.length },
