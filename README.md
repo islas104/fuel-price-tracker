@@ -1,8 +1,10 @@
 # FuelFinder
 
-FuelFinder is a live UK fuel price tracker that shows you the cheapest petrol and diesel stations near your current location. It pulls real-time prices directly from retailer feeds (Asda, Sainsbury's, Jet) that are legally required to publish up-to-date pump prices under the UK Competition and Markets Authority (CMA) mandate.
+FuelFinder is a live UK fuel price tracker that shows you the cheapest petrol and diesel stations near your current location. It pulls real-time prices directly from retailer feeds that are legally required to publish up-to-date pump prices under the UK Competition and Markets Authority (CMA) mandate.
 
 Open the app, allow location access, and instantly see every nearby station ranked by price — with an interactive map, savings comparisons, and one-tap directions.
+
+![FuelFinder — list view](docs/Ui.png)
 
 ---
 
@@ -13,7 +15,7 @@ Open the app, allow location access, and instantly see every nearby station rank
 - Ranks stations from cheapest to most expensive
 - Highlights the cheapest station nearby and shows how much more expensive each other station is (e.g. +2.1p vs cheapest)
 - Displays stations on an interactive map with price labels
-- Lets you switch between petrol and diesel, sort by price or distance, and adjust the search radius from 2 to 30 km
+- Lets you switch between petrol and diesel, sort by price or distance, and adjust the search radius from 2 to 30 miles
 - Works on both mobile and desktop
 
 ---
@@ -52,11 +54,17 @@ Open [http://localhost:3000](http://localhost:3000) in your browser and allow lo
 
 Prices are fetched server-side from CMA-mandated retailer feeds. UK law requires fuel retailers to publish their pump prices and update them within 30 minutes of any change.
 
-| Retailer | Stations | Typical update frequency |
-|---|---|---|
-| Asda | ~790 | Hourly |
-| Sainsbury's | ~316 | Every few hours |
-| Jet | ~11 | Hourly |
+| Retailer | Stations |
+|---|---|
+| Motor Fuel Group (MFG) | ~1,223 |
+| Asda | ~650 |
+| BP | ~300 |
+| Sainsbury's | ~320 |
+| Rontec | ~265 |
+| SGN Retail | ~150 |
+| Jet | ~370 |
+| Moto | ~50 |
+| Ascona | ~60 |
 
 ---
 
