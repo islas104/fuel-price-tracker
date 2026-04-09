@@ -71,8 +71,9 @@ export async function GET(req: NextRequest) {
   const radius = Math.min(parseFloat(searchParams.get("radius") ?? "10"), 30);
   const limit  = Math.min(parseInt(searchParams.get("limit")   ?? "50", 10), 100);
 
-  if (!lat || !lng) {
-    return NextResponse.json({ error: "lat and lng are required" }, { status: 400 });
+  const inUK = lat >= 49 && lat <= 61 && lng >= -8 && lng <= 2;
+  if (!lat || !lng || !inUK) {
+    return NextResponse.json({ error: "lat and lng must be valid UK coordinates" }, { status: 400 });
   }
 
   // All sources fetched in parallel — each from its own cache entry

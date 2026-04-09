@@ -10,29 +10,29 @@ export interface FuelStation {
     petrol?: number; // pence per litre e.g. 149.9 = 149.9p/L
     diesel?: number;
   };
-  distance?: number; // km from user
+  distance?: number; // miles from user
   lastUpdated?: string;
 }
 
 // UK CMA-mandated open fuel price feeds — verified working
 // Shell, Tesco, Esso: actively block server-side requests (403)
 // Morrisons: feed broken (returns 1 station)
-export const FUEL_SOURCES = [
+export const FUEL_SOURCES: { brand: string; url: string; mobileUA: boolean }[] = [
   // Standard fetch
-  { brand: "Asda",       url: "https://storelocator.asda.com/fuel_prices_data.json",                                        mobileUA: false, scraperApi: false },
-  { brand: "Sainsburys", url: "https://api.sainsburys.co.uk/v1/exports/latest/fuel_prices_data.json",                       mobileUA: false, scraperApi: false },
-  { brand: "Jet",        url: "https://jetlocal.co.uk/fuel_prices_data.json",                                               mobileUA: false, scraperApi: false },
-  { brand: "Ascona",     url: "https://fuelprices.asconagroup.co.uk/newfuel.json",                                          mobileUA: false, scraperApi: false },
+  { brand: "Asda",       url: "https://storelocator.asda.com/fuel_prices_data.json",                                        mobileUA: false },
+  { brand: "Sainsburys", url: "https://api.sainsburys.co.uk/v1/exports/latest/fuel_prices_data.json",                       mobileUA: false },
+  { brand: "Jet",        url: "https://jetlocal.co.uk/fuel_prices_data.json",                                               mobileUA: false },
+  { brand: "Ascona",     url: "https://fuelprices.asconagroup.co.uk/newfuel.json",                                          mobileUA: false },
   // Requires mobile User-Agent
-  { brand: "BP",         url: "https://www.bp.com/en_gb/united-kingdom/home/fuelprices/fuel_prices_data.json",             mobileUA: true,  scraperApi: false },
+  { brand: "BP",         url: "https://www.bp.com/en_gb/united-kingdom/home/fuelprices/fuel_prices_data.json",             mobileUA: true  },
   // Motor Fuel Group — 1,200+ stations (BP, Esso, Texaco, Shell-branded sites)
-  { brand: "MFG",        url: "https://fuel.motorfuelgroup.com/fuel_prices_data.json",                                     mobileUA: false, scraperApi: false },
+  { brand: "MFG",        url: "https://fuel.motorfuelgroup.com/fuel_prices_data.json",                                     mobileUA: false },
   // Rontec — 265 stations
-  { brand: "Rontec",     url: "https://www.rontec-servicestations.co.uk/fuel-prices/data/fuel_prices_data.json",           mobileUA: false, scraperApi: false },
+  { brand: "Rontec",     url: "https://www.rontec-servicestations.co.uk/fuel-prices/data/fuel_prices_data.json",           mobileUA: false },
   // Moto — removed from CMA participating retailers list on 08/04/2026; feed may still return data
-  { brand: "Moto",       url: "https://moto-way.com/fuel-price/fuel_prices.json",                                          mobileUA: false, scraperApi: false },
+  { brand: "Moto",       url: "https://moto-way.com/fuel-price/fuel_prices.json",                                          mobileUA: false },
   // SGN Retail — 150 stations
-  { brand: "SGN",        url: "https://www.sgnretail.uk/files/data/SGN_daily_fuel_prices.json",                            mobileUA: false, scraperApi: false },
+  { brand: "SGN",        url: "https://www.sgnretail.uk/files/data/SGN_daily_fuel_prices.json",                            mobileUA: false },
   // Tesco: Akamai blocks all server-side requests including ScraperAPI free tier
   // Shell: HTTP 403 even with mobile User-Agent
   // Esso (direct): stale feed (~12 days old) — excluded
