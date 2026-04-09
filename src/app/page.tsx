@@ -6,7 +6,7 @@ import StationCard from "./components/StationCard";
 import SkeletonCard from "./components/SkeletonCard";
 import {
   Fuel, LocateFixed, AlertCircle, MapIcon, ListIcon,
-  ArrowUpDown, TrendingDown, ChevronDown,
+  ArrowUpDown, TrendingDown, ChevronDown, Download,
 } from "lucide-react";
 
 const FuelMap = dynamic(() => import("./components/FuelMap"), { ssr: false });
@@ -16,6 +16,7 @@ type SortBy   = "distance" | "price";
 type View     = "list" | "map";
 
 export default function Home() {
+  const downloadHref = "/downloads/fuel-finder-latest.csv";
   const [location,        setLocation]        = useState<{ lat: number; lng: number } | null>(null);
   const [stations,        setStations]        = useState<FuelStation[]>([]);
   const [fuelType,        setFuelType]        = useState<FuelType>("petrol");
@@ -160,7 +161,7 @@ export default function Home() {
       )}
 
       {/* ── Controls ── */}
-      <div className="bg-white border-b border-gray-100 px-3 py-2 flex items-center gap-2 flex-shrink-0">
+      <div className="bg-white border-b border-gray-100 px-3 py-2 flex items-center gap-2 flex-wrap flex-shrink-0">
         {/* Fuel type toggle */}
         <div className="flex rounded-xl overflow-hidden border border-gray-200 p-0.5 bg-gray-50 flex-shrink-0">
           {(["petrol", "diesel"] as FuelType[]).map((type) => (
@@ -187,8 +188,18 @@ export default function Home() {
           <span className="hidden sm:inline">{sortBy === "price" ? "Cheapest" : "Nearest"}</span>
         </button>
 
+        <a
+          href={downloadHref}
+          download="fuel-finder-latest.csv"
+          className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl min-h-[36px] flex-shrink-0 hover:bg-emerald-100 transition-colors"
+        >
+          <Download size={12} />
+          <span className="hidden sm:inline">Download CSV</span>
+          <span className="sm:hidden">CSV</span>
+        </a>
+
         {/* Radius */}
-        <div className="relative flex-shrink-0 ml-auto">
+        <div className="relative flex-shrink-0 md:ml-auto">
           <select
             value={radius}
             onChange={(e) => setRadius(Number(e.target.value))}
