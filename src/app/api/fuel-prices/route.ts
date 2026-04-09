@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import {
   FUEL_SOURCES,
   FuelStation,
@@ -19,20 +21,24 @@ const fetchSource = unstable_cache(
     url: string,
     brand: string,
     mobileUA: boolean,
-    format: "json" | "csv"
+    format: "json" | "csv",
+    transport: "http" | "file" = "http"
   ): Promise<FuelStation[]> => {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": mobileUA
-          ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-          : "FuelPriceTracker/1.0",
-        "Accept": "application/json, text/plain, */*",
-      },
-      signal: AbortSignal.timeout(5_000), // 5s — fail fast, most feeds respond in <1s
-    });
-    if (!res.ok) throw new Error(`${brand}: HTTP ${res.status}`);
-
-    const text = await res.text();
+    const text = transport === "file"
+      ? await readFile(path.join(process.cwd(), url), "utf8")
+      : await (async () => {
+          const res = await fetch(url, {
+            headers: {
+              "User-Agent": mobileUA
+                ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+                : "FuelPriceTracker/1.0",
+              "Accept": "application/json, text/plain, */*",
+            },
+            signal: AbortSignal.timeout(5_000), // 5s — fail fast, most feeds respond in <1s
+          });
+          if (!res.ok) throw new Error(`${brand}: HTTP ${res.status}`);
+          return res.text();
+        })();
     let raw: unknown[];
 
     if (format === "csv") {
@@ -90,7 +96,7 @@ export async function GET(req: NextRequest) {
 
   // All sources fetched in parallel — each from its own cache entry
   const results = await Promise.allSettled(
-    FUEL_SOURCES.map((s) => fetchSource(s.url, s.brand, s.mobileUA, s.format))
+    FUEL_SOURCES.map((s) => fetchSource(s.url, s.brand, s.mobileUA, s.format, s.transport))
   );
 
   const all = deduplicateStations(
