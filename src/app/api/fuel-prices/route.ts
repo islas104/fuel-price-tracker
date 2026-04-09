@@ -9,60 +9,82 @@ import {
 
 export const runtime = "nodejs";
 
-// Fetch and normalise all stations from every retailer feed.
-// unstable_cache persists this on Vercel's shared cache infrastructure
-// (survives across serverless function instances) and revalidates every 15 min.
-const getAllStations = unstable_cache(
-  async (): Promise<FuelStation[]> => {
-    const results = await Promise.allSettled(
-      FUEL_SOURCES.map(async (source) => {
-        const res = await fetch(source.url, {
-          headers: {
-            "User-Agent": source.mobileUA
-              ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-              : "FuelPriceTracker/1.0",
-            "Accept": "application/json, text/plain, */*",
-          },
-          signal: AbortSignal.timeout(10_000),
-        });
-        if (!res.ok) throw new Error(`${source.brand}: HTTP ${res.status}`);
+// Each source is cached independently.
+// Previously one shared cache meant a single expired entry forced all 9 sources
+// to refetch simultaneously. Now only the stale source re-fetches — the rest
+// are served instantly from their own warm cache entries.
+const fetchSource = unstable_cache(
+  async (url: string, brand: string, mobileUA: boolean): Promise<FuelStation[]> => {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": mobileUA
+          ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+          : "FuelPriceTracker/1.0",
+        "Accept": "application/json, text/plain, */*",
+      },
+      signal: AbortSignal.timeout(5_000), // 5s — fail fast, most feeds respond in <1s
+    });
+    if (!res.ok) throw new Error(`${brand}: HTTP ${res.status}`);
 
-        const text = await res.text();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let json: any;
-        try { json = JSON.parse(text); }
-        catch { throw new Error(`${source.brand}: non-JSON response`); }
+    const text = await res.text();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let json: any;
+    try { json = JSON.parse(text); }
+    catch { throw new Error(`${brand}: non-JSON response`); }
 
-        const raw: unknown[] =
-          json.stations ?? json.sites ?? json.data ?? json.results ??
-          (Array.isArray(json) ? json : []);
+    const raw: unknown[] =
+      json.stations ?? json.sites ?? json.data ?? json.results ??
+      (Array.isArray(json) ? json : []);
 
-        return raw
-          .map((s) => normaliseStation(source.brand, s))
-          .filter((s): s is FuelStation => s !== null);
-      })
-    );
-
-    return results
-      .filter((r) => r.status === "fulfilled")
-      .flatMap((r) => (r as PromiseFulfilledResult<FuelStation[]>).value);
+    return raw
+      .map((s) => normaliseStation(brand, s))
+      .filter((s): s is FuelStation => s !== null);
   },
-  ["fuel-stations"],
-  { revalidate: 900 } // 15 minutes
+  ["fuel-source"], // Next.js appends the function args to form a unique key per source
+  { revalidate: 900 } // 15 minutes per source
 );
+
+// Remove stations at the same physical location (within ~11m, 4 d.p.).
+// BP's own feed and MFG both publish BP-branded forecourts — without this
+// the same forecourt appears twice in the results. Keeps the record with
+// the most complete price data.
+function deduplicateStations(stations: FuelStation[]): FuelStation[] {
+  const seen = new Map<string, FuelStation>();
+  for (const station of stations) {
+    const key = `${station.lat.toFixed(4)},${station.lng.toFixed(4)}`;
+    const existing = seen.get(key);
+    if (!existing) {
+      seen.set(key, station);
+    } else {
+      const existingCount = Object.values(existing.prices).filter(Boolean).length;
+      const newCount      = Object.values(station.prices).filter(Boolean).length;
+      if (newCount > existingCount) seen.set(key, station);
+    }
+  }
+  return Array.from(seen.values());
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const lat    = parseFloat(searchParams.get("lat")    ?? "0");
   const lng    = parseFloat(searchParams.get("lng")    ?? "0");
-  const radius = Math.min(parseFloat(searchParams.get("radius") ?? "10"), 30); // cap at 30 miles
-  const limit  = Math.min(parseInt(searchParams.get("limit")   ?? "50", 10), 100); // max 100 results
+  const radius = Math.min(parseFloat(searchParams.get("radius") ?? "10"), 30);
+  const limit  = Math.min(parseInt(searchParams.get("limit")   ?? "50", 10), 100);
 
   if (!lat || !lng) {
     return NextResponse.json({ error: "lat and lng are required" }, { status: 400 });
   }
 
-  const all = await getAllStations();
+  // All sources fetched in parallel — each from its own cache entry
+  const results = await Promise.allSettled(
+    FUEL_SOURCES.map((s) => fetchSource(s.url, s.brand, s.mobileUA))
+  );
+
+  const all = deduplicateStations(
+    results
+      .filter((r) => r.status === "fulfilled")
+      .flatMap((r) => (r as PromiseFulfilledResult<FuelStation[]>).value)
+  );
 
   const nearby = all
     .map((s)  => ({ ...s, distance: haversineDistance(lat, lng, s.lat, s.lng) }))

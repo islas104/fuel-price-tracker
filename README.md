@@ -12,7 +12,7 @@ Open the app, allow location access, and instantly see every nearby station rank
 
 1. **Location** — the browser requests your GPS coordinates. A fast network fix is returned immediately, then silently upgraded to a more accurate GPS fix in the background.
 
-2. **Price fetch** — your coordinates and chosen radius are sent to the `/api/fuel-prices` route. The server fetches all active CMA retailer feeds in parallel (using `Promise.allSettled` so a single broken feed never blocks the rest), normalises every station into a common schema, and caches the result for 15 minutes using Next.js `unstable_cache`. Subsequent requests within that window are served instantly from cache.
+2. **Price fetch** — your coordinates and chosen radius are sent to the `/api/fuel-prices` route. Each retailer feed has its own independent `unstable_cache` entry (15-minute TTL). All sources are fetched in parallel via `Promise.allSettled` so a broken feed never blocks the rest. Because each source is cached separately, only a stale source re-fetches on the next request — the rest are served instantly from their warm cache entries. Duplicate stations (e.g. the same BP forecourt appearing in both the BP feed and the MFG feed) are removed by deduplicating on lat/lng rounded to 4 decimal places (~11m).
 
 3. **Filtering & ranking** — stations are filtered to your radius using the Haversine formula (distances in miles), sorted by price or distance, and capped at 50 results to keep payloads small.
 
@@ -83,17 +83,28 @@ Prices are fetched server-side from CMA-mandated retailer feeds. UK law requires
 | Retailer | Approx. stations |
 |---|---|
 | Motor Fuel Group (MFG) | ~1,223 |
-| Jet | ~370 |
 | Asda | ~650 |
+| Jet | ~370 |
 | Sainsbury's | ~320 |
 | BP | ~300 |
 | Rontec | ~265 |
 | SGN Retail | ~150 |
 | Ascona | ~60 |
 | Moto | ~50 |
-| **Total** | **~3,400** |
+| **Total (before dedup)** | **~3,400** |
 
-Retailers not included: Shell and Tesco block all server-side requests (403 / Akamai WAF). Morrisons' feed only returns one station. Esso's direct feed is updated infrequently.
+> Stations from overlapping feeds (e.g. the same BP forecourt in both the BP and MFG feeds) are deduplicated server-side, so the real unique count is lower.
+
+**Retailers not included and why:**
+
+| Retailer | Reason |
+|---|---|
+| Tesco | Akamai WAF blocks all server-side requests — returns an HTML block page instead of JSON. Standard UA spoofing does not help; Akamai fingerprints the TLS handshake and HTTP/2 header order. ScraperAPI free tier also blocked — residential proxies (e.g. Bright Data) required. |
+| Shell | HTTP 403 on all server-side requests including mobile UA. |
+| Morrisons | Feed live but only ever returns one station (a Gibraltar location). |
+| Esso (direct) | Feed data is ~12 days stale. Esso-branded sites run by MFG are included via the MFG feed. |
+| Karan Retail | Expired SSL certificate — fetch fails with `CERT_HAS_EXPIRED`. |
+| Moto | Removed from the CMA participating retailers list on 08/04/2026. Feed URL left in as fallback while it still returns data. |
 
 ---
 

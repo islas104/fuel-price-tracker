@@ -29,7 +29,7 @@ export const FUEL_SOURCES = [
   { brand: "MFG",        url: "https://fuel.motorfuelgroup.com/fuel_prices_data.json",                                     mobileUA: false, scraperApi: false },
   // Rontec — 265 stations
   { brand: "Rontec",     url: "https://www.rontec-servicestations.co.uk/fuel-prices/data/fuel_prices_data.json",           mobileUA: false, scraperApi: false },
-  // Moto — 50 motorway service stations
+  // Moto — removed from CMA participating retailers list on 08/04/2026; feed may still return data
   { brand: "Moto",       url: "https://moto-way.com/fuel-price/fuel_prices.json",                                          mobileUA: false, scraperApi: false },
   // SGN Retail — 150 stations
   { brand: "SGN",        url: "https://www.sgnretail.uk/files/data/SGN_daily_fuel_prices.json",                            mobileUA: false, scraperApi: false },
