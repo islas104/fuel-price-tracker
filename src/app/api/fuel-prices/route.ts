@@ -5,6 +5,7 @@ import {
   FuelStation,
   haversineDistance,
   normaliseStation,
+  parseCsvRecords,
 } from "@/lib/fuel-sources";
 
 export const runtime = "nodejs";
@@ -14,7 +15,12 @@ export const runtime = "nodejs";
 // to refetch simultaneously. Now only the stale source re-fetches — the rest
 // are served instantly from their own warm cache entries.
 const fetchSource = unstable_cache(
-  async (url: string, brand: string, mobileUA: boolean): Promise<FuelStation[]> => {
+  async (
+    url: string,
+    brand: string,
+    mobileUA: boolean,
+    format: "json" | "csv"
+  ): Promise<FuelStation[]> => {
     const res = await fetch(url, {
       headers: {
         "User-Agent": mobileUA
@@ -27,14 +33,20 @@ const fetchSource = unstable_cache(
     if (!res.ok) throw new Error(`${brand}: HTTP ${res.status}`);
 
     const text = await res.text();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let json: any;
-    try { json = JSON.parse(text); }
-    catch { throw new Error(`${brand}: non-JSON response`); }
+    let raw: unknown[];
 
-    const raw: unknown[] =
-      json.stations ?? json.sites ?? json.data ?? json.results ??
-      (Array.isArray(json) ? json : []);
+    if (format === "csv") {
+      raw = parseCsvRecords(text);
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let json: any;
+      try { json = JSON.parse(text); }
+      catch { throw new Error(`${brand}: non-JSON response`); }
+
+      raw =
+        json.stations ?? json.sites ?? json.data ?? json.results ??
+        (Array.isArray(json) ? json : []);
+    }
 
     return raw
       .map((s) => normaliseStation(brand, s))
@@ -78,7 +90,7 @@ export async function GET(req: NextRequest) {
 
   // All sources fetched in parallel — each from its own cache entry
   const results = await Promise.allSettled(
-    FUEL_SOURCES.map((s) => fetchSource(s.url, s.brand, s.mobileUA))
+    FUEL_SOURCES.map((s) => fetchSource(s.url, s.brand, s.mobileUA, s.format))
   );
 
   const all = deduplicateStations(

@@ -78,7 +78,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser and allow lo
 
 ## Data sources
 
-Prices are fetched server-side from CMA-mandated retailer feeds. UK law requires fuel retailers to publish their pump prices and update them within 30 minutes of any change. All feeds are standard JSON — no scraping required.
+Prices are fetched server-side from CMA-mandated retailer feeds. UK law requires fuel retailers to publish their pump prices and update them within 30 minutes of any change. The app now supports both the standard retailer JSON feeds and the newer Fuel Finder CSV export format.
 
 | Retailer | Approx. stations |
 |---|---|
@@ -94,6 +94,8 @@ Prices are fetched server-side from CMA-mandated retailer feeds. UK law requires
 | **Total (before dedup)** | **~3,400** |
 
 > Stations from overlapping feeds (e.g. the same BP forecourt in both the BP and MFG feeds) are deduplicated server-side, so the real unique count is lower.
+
+If you want to ingest a Fuel Finder CSV feed, add it to [`src/lib/fuel-sources.ts`](/Users/ianawaz/Desktop/Live Petrol Prices/src/lib/fuel-sources.ts) with `format: "csv"`. The parser maps Fuel Finder fields such as `forecourts.location.latitude`, `forecourts.fuel_price.E10`, and `forecourts.fuel_price.B7S` into the app's shared `FuelStation` shape automatically.
 
 **Retailers not included and why:**
 
