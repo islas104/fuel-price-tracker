@@ -10,6 +10,12 @@ html, body, #__next {
   height: 100%;
 }
 
+/* Leaflet fuel-price markers — reset the default div-icon white box */
+.fuel-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
 /* Safe area insets for iPhone notch / home bar */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);

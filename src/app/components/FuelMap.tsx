@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { FuelStation } from "@/lib/fuel-sources";
+import { getBrandColor } from "@/lib/brand-colors";
 
 interface Props {
   userLat: number;
@@ -11,26 +12,6 @@ interface Props {
   onSelectStation: (id: string) => void;
   isVisible: boolean;
 }
-
-const BRAND_COLORS: Record<string, string> = {
-  Asda:          "#16a34a",
-  Morrisons:     "#eab308",
-  Tesco:         "#e2001a",
-  Sainsburys:    "#f97316",
-  "Sainsbury's": "#f97316",
-  Jet:           "#ef4444",
-  Applegreen:    "#15803d",
-  BP:            "#006B3F",
-  Shell:         "#f5c400",
-  Esso:          "#e60028",
-  Ascona:        "#1d4ed8",
-  Gulf:          "#f97316",
-  Texaco:        "#dc2626",
-  MFG:           "#4338ca",
-  Rontec:        "#0e7490",
-  Moto:          "#eab308",
-  SGN:           "#7e22ce",
-};
 
 // Module-level promises — loaded once, reused across remounts
 let leafletPromise: Promise<typeof import("leaflet")> | null = null;
@@ -45,11 +26,42 @@ function loadMarkerCluster() {
     mcPromise = import(
       /* webpackChunkName: "leaflet-markercluster" */
       "leaflet.markercluster"
-    ).then(() => {}).catch(() => {
-      // Plugin failed to load — map still works via LayerGroup fallback
-    });
+    ).then(() => {}).catch(() => {});
   }
   return mcPromise;
+}
+
+// Standalone — no closure over component scope, so never stale
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function renderStations(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  L: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  layer: any,
+  stations: FuelStation[],
+  fuelType: "petrol" | "diesel",
+  onSelect: (id: string) => void,
+) {
+  layer.clearLayers();
+  stations.forEach((station) => {
+    const price = station.prices[fuelType];
+    const color = getBrandColor(station.brand).hex;
+    const label = price ? `${price.toFixed(1)}p` : station.brand;
+
+    const icon = L.divIcon({
+      className: "fuel-marker",
+      html: `<div style="display:inline-flex;flex-direction:column;align-items:center;filter:drop-shadow(0 3px 6px rgba(0,0,0,0.45));">
+        <div style="background:${color};color:#fff;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;white-space:nowrap;border:2.5px solid #fff;letter-spacing:0.01em;">${label}</div>
+        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid ${color};margin-top:-1px;"></div>
+      </div>`,
+      iconAnchor: [24, 30],
+    });
+
+    L.marker([station.lat, station.lng], { icon })
+      .bindPopup(`<b>${station.brand}</b><br>${station.name}<br>${price ? `${fuelType === "petrol" ? "Petrol" : "Diesel"}: ${price.toFixed(1)}p/L` : "Price unavailable"}`)
+      .on("click", () => onSelect(station.id))
+      .addTo(layer);
+  });
 }
 
 export default function FuelMap({ userLat, userLng, stations, fuelType, selectedId, onSelectStation, isVisible }: Props) {
@@ -61,7 +73,15 @@ export default function FuelMap({ userLat, userLng, stations, fuelType, selected
   const destroyedRef   = useRef(false);
   const retryTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Initialise map once — retries once on failure, safe against React Strict Mode double-invoke
+  // Updated synchronously on every render — safe to read from inside the init closure
+  const stationsRef        = useRef(stations);
+  const fuelTypeRef        = useRef(fuelType);
+  const onSelectStationRef = useRef(onSelectStation);
+  stationsRef.current        = stations;
+  fuelTypeRef.current        = fuelType;
+  onSelectStationRef.current = onSelectStation;
+
+  // Initialise map once
   useEffect(() => {
     destroyedRef.current = false;
 
@@ -93,14 +113,24 @@ export default function FuelMap({ userLat, userLng, stations, fuelType, selected
           weight: 2, opacity: 1, fillOpacity: 0.9,
         }).addTo(map).bindPopup("Your location");
 
-        // MarkerClusterGroup — groups overlapping pins in dense areas
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        markerLayerRef.current = (L as any).markerClusterGroup({
-          maxClusterRadius: 50,
-          showCoverageOnHover: false,
-          zoomToBoundsOnClick: true,
-          disableClusteringAtZoom: 15,
-        }).addTo(map);
+        const layer = typeof (L as any).markerClusterGroup === "function"
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ? (L as any).markerClusterGroup({
+              maxClusterRadius: 50,
+              showCoverageOnHover: false,
+              zoomToBoundsOnClick: true,
+              disableClusteringAtZoom: 15,
+            })
+          : L.layerGroup();
+
+        layer.addTo(map);
+        markerLayerRef.current = layer;
+
+        // Render stations that arrived before init completed — reads the latest ref values
+        if (stationsRef.current.length > 0) {
+          renderStations(L, layer, stationsRef.current, fuelTypeRef.current, onSelectStationRef.current);
+        }
       } catch (err) {
         if (process.env.NODE_ENV === "development") console.error("[FuelMap] init error:", err);
         if (!destroyedRef.current) {
@@ -123,41 +153,12 @@ export default function FuelMap({ userLat, userLng, stations, fuelType, selected
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Rebuild markers when stations or fuelType changes
+  // Redraw markers when stations or fuelType changes after the map is ready
   useEffect(() => {
-    if (!mapInstanceRef.current || !markerLayerRef.current) return;
-
-    if (!stations.length) {
-      markerLayerRef.current.clearLayers();
-      return;
-    }
-
+    if (!markerLayerRef.current) return;
     Promise.all([loadLeaflet(), loadMarkerCluster()]).then(([L]) => {
       if (!markerLayerRef.current) return;
-
-      const t0 = performance.now();
-
-      markerLayerRef.current.clearLayers();
-
-      stations.forEach((station) => {
-        const price = station.prices[fuelType];
-        const color = BRAND_COLORS[station.brand] ?? "#6b7280";
-
-        const icon = L.divIcon({
-          className: "",
-          html: `<div style="background:${color};color:#fff;border-radius:20px;padding:3px 7px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid #fff;">${price ? price.toFixed(1) + "p" : station.brand}</div>`,
-          iconAnchor: [20, 12],
-        });
-
-        L.marker([station.lat, station.lng], { icon })
-          .bindPopup(`<b>${station.brand}</b><br>${station.name}<br>${price ? `${fuelType === "petrol" ? "Petrol" : "Diesel"}: ${price.toFixed(1)}p/L` : "Price unavailable"}`)
-          .on("click", () => onSelectStation(station.id))
-          .addTo(markerLayerRef.current);
-      });
-
-      if (process.env.NODE_ENV === "development") {
-        console.debug(`[FuelMap] ${stations.length} markers in ${(performance.now() - t0).toFixed(1)}ms`);
-      }
+      renderStations(L, markerLayerRef.current, stations, fuelType, onSelectStation);
     });
   }, [stations, fuelType, onSelectStation]);
 

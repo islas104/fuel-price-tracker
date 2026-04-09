@@ -1,12 +1,14 @@
 "use client";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useMemo, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { FuelStation } from "@/lib/fuel-sources";
+import { useGeolocation } from "@/hooks/useGeolocation";
+import { useFuelPrices } from "@/hooks/useFuelPrices";
 import StationCard from "./components/StationCard";
 import SkeletonCard from "./components/SkeletonCard";
 import {
   Fuel, LocateFixed, AlertCircle, MapIcon, ListIcon,
-  ArrowUpDown, TrendingDown, ChevronDown, Download,
+  ArrowUpDown, TrendingDown, ChevronDown, Download, Search,
 } from "lucide-react";
 
 const FuelMap = dynamic(() => import("./components/FuelMap"), { ssr: false });
@@ -17,75 +19,53 @@ type View     = "list" | "map";
 
 export default function Home() {
   const downloadHref = "/downloads/fuel-finder-latest.csv";
-  const [location,        setLocation]        = useState<{ lat: number; lng: number } | null>(null);
-  const [stations,        setStations]        = useState<FuelStation[]>([]);
-  const [fuelType,        setFuelType]        = useState<FuelType>("petrol");
-  const [sortBy,          setSortBy]          = useState<SortBy>("price");
-  const [radius,          setRadius]          = useState(10);
-  const [debouncedRadius, setDebouncedRadius] = useState(10);
-  const [loading,         setLoading]         = useState(false);
-  const [geoError,        setGeoError]        = useState<string | null>(null);
-  const [fetchError,      setFetchError]      = useState<string | null>(null);
-  const [selectedId,      setSelectedId]      = useState<string | null>(null);
-  const [mobileView,      setMobileView]      = useState<View>("list");
-  const listRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedRadius(radius), 400);
-    return () => clearTimeout(t);
-  }, [radius]);
+  const { location, setLocation, error: geoError, locate: getLocation } = useGeolocation();
 
-  const getLocation = useCallback(() => {
-    setGeoError(null);
-    if (!navigator.geolocation) { setGeoError("Geolocation not supported."); return; }
+  const [fuelType,   setFuelType]   = useState<FuelType>("petrol");
+  const [sortBy,     setSortBy]     = useState<SortBy>("price");
+  const [radius,     setRadius]     = useState(10);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<View>("list");
 
-    // First get a fast coarse fix (network/WiFi), then try to refine with GPS
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      (err) => setGeoError(
-        err.code === 1
-          ? "Location access denied. Please allow location in your browser settings."
-          : "Couldn't get your location. Please try again."
-      ),
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-    );
+  // Postcode fallback
+  const [postcodeInput,   setPostcodeInput]   = useState("");
+  const [postcodeError,   setPostcodeError]   = useState<string | null>(null);
+  const [postcodeLoading, setPostcodeLoading] = useState(false);
 
-    // Then silently upgrade to a more accurate fix if available
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => { /* ignore high-accuracy failure — we already have a coarse fix */ },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
-  }, []);
+  const { stations, loading, error: fetchError, sourceMeta } = useFuelPrices(location, radius);
 
-  useEffect(() => { getLocation(); }, [getLocation]);
+  const sorted = useMemo(
+    () =>
+      [...stations]
+        .filter((s) => s.prices[fuelType] !== undefined)
+        .sort((a, b) =>
+          sortBy === "price"
+            ? (a.prices[fuelType] ?? Infinity) - (b.prices[fuelType] ?? Infinity)
+            : (a.distance ?? 0) - (b.distance ?? 0)
+        ),
+    [stations, fuelType, sortBy]
+  );
 
-  useEffect(() => {
-    if (!location) return;
-    setLoading(true);
-    setFetchError(null);
-    const controller = new AbortController();
-    fetch(`/api/fuel-prices?lat=${location.lat}&lng=${location.lng}&radius=${debouncedRadius}`, {
-      signal: controller.signal,
-    })
-      .then((r) => r.json())
-      .then((d) => { if (d.error) throw new Error(d.error); setStations(d.stations ?? []); })
-      .catch((e) => { if (e.name !== "AbortError") setFetchError(e.message); })
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [location, debouncedRadius]);
+  const cheapestPetrol = useMemo(
+    () =>
+      [...stations]
+        .filter((s) => s.prices.petrol)
+        .sort((a, b) => (a.prices.petrol ?? Infinity) - (b.prices.petrol ?? Infinity))[0]
+        ?.prices.petrol,
+    [stations]
+  );
 
-  const sorted = [...stations]
-    .filter((s) => s.prices[fuelType] !== undefined)
-    .sort((a, b) =>
-      sortBy === "price"
-        ? (a.prices[fuelType] ?? Infinity) - (b.prices[fuelType] ?? Infinity)
-        : (a.distance ?? 0) - (b.distance ?? 0)
-    );
+  const cheapestDiesel = useMemo(
+    () =>
+      [...stations]
+        .filter((s) => s.prices.diesel)
+        .sort((a, b) => (a.prices.diesel ?? Infinity) - (b.prices.diesel ?? Infinity))[0]
+        ?.prices.diesel,
+    [stations]
+  );
 
-  const cheapestPrice  = sorted[0]?.prices[fuelType];
-  const cheapestPetrol = [...stations].filter((s) => s.prices.petrol).sort((a, b) => (a.prices.petrol ?? Infinity) - (b.prices.petrol ?? Infinity))[0]?.prices.petrol;
-  const cheapestDiesel = [...stations].filter((s) => s.prices.diesel).sort((a, b) => (a.prices.diesel ?? Infinity) - (b.prices.diesel ?? Infinity))[0]?.prices.diesel;
+  const cheapestPrice = sorted[0]?.prices[fuelType];
 
   const handleSelectStation = useCallback((id: string) => {
     setSelectedId(id);
@@ -94,6 +74,28 @@ export default function Home() {
       document.getElementById(`station-${id}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, 150);
   }, []);
+
+  const handlePostcode = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      const code = postcodeInput.trim();
+      if (!code) return;
+      setPostcodeLoading(true);
+      setPostcodeError(null);
+      try {
+        const res = await fetch(`/api/geocode?postcode=${encodeURIComponent(code)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Postcode not found");
+        setLocation({ lat: data.lat, lng: data.lng });
+        setPostcodeInput("");
+      } catch (err: unknown) {
+        setPostcodeError(err instanceof Error ? err.message : "Postcode not found");
+      } finally {
+        setPostcodeLoading(false);
+      }
+    },
+    [postcodeInput, setLocation]
+  );
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 overflow-hidden">
@@ -126,6 +128,12 @@ export default function Home() {
                 <span className="text-xs text-slate-400">Diesel</span>
                 <span className="text-sm font-bold text-amber-400">{cheapestDiesel.toFixed(1)}p</span>
               </div>
+            )}
+            {/* Source health indicator */}
+            {sourceMeta && sourceMeta.failed > 0 && (
+              <span className="text-[10px] text-slate-500" title={sourceMeta.errors.join("\n")}>
+                {sourceMeta.succeeded}/{sourceMeta.succeeded + sourceMeta.failed} sources
+              </span>
             )}
           </div>
         )}
@@ -216,7 +224,7 @@ export default function Home() {
       {/* ── Body ── */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* Map — full width on mobile when active, 60% on desktop */}
+        {/* Map — full width on mobile when active, 50% on desktop */}
         <div className={`${mobileView === "map" ? "flex flex-1" : "hidden"} md:flex md:flex-none md:w-1/2 lg:w-3/5 flex-col p-2.5`}>
           {location ? (
             <div className="flex-1 rounded-2xl overflow-hidden shadow-sm border border-gray-200">
@@ -241,25 +249,44 @@ export default function Home() {
         </div>
 
         {/* Station list */}
-        <div
-          ref={listRef}
-          className={`${mobileView === "list" ? "flex" : "hidden"} md:flex flex-col flex-1 overflow-y-auto`}
-        >
+        <div className={`${mobileView === "list" ? "flex" : "hidden"} md:flex flex-col flex-1 overflow-y-auto`}>
           <div className="p-3 space-y-2.5">
 
-            {/* Errors */}
+            {/* Geo error + postcode fallback */}
             {geoError && (
               <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex gap-3">
                 <AlertCircle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-red-600">Location unavailable</p>
                   <p className="text-xs text-red-400 mt-0.5">{geoError}</p>
                   <button onClick={getLocation} className="mt-2 text-xs font-bold text-red-600 underline">
                     Try again
                   </button>
+                  {/* Postcode fallback */}
+                  <form onSubmit={handlePostcode} className="mt-3 flex gap-2">
+                    <input
+                      type="text"
+                      value={postcodeInput}
+                      onChange={(e) => setPostcodeInput(e.target.value)}
+                      placeholder="Enter postcode (e.g. SW1A 1AA)"
+                      className="flex-1 text-xs border border-red-200 rounded-xl px-3 py-2 focus:outline-none focus:border-red-400 bg-white min-h-[36px]"
+                    />
+                    <button
+                      type="submit"
+                      disabled={postcodeLoading || !postcodeInput.trim()}
+                      className="flex items-center gap-1 text-xs font-bold text-white bg-red-500 active:bg-red-600 px-3 py-2 rounded-xl min-h-[36px] disabled:opacity-50 transition-colors"
+                    >
+                      <Search size={12} />
+                      {postcodeLoading ? "..." : "Go"}
+                    </button>
+                  </form>
+                  {postcodeError && (
+                    <p className="text-xs text-red-500 mt-1">{postcodeError}</p>
+                  )}
                 </div>
               </div>
             )}
+
             {fetchError && (
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3">
                 <AlertCircle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
@@ -275,7 +302,7 @@ export default function Home() {
 
             {/* Waiting for location */}
             {!location && !geoError && !loading && (
-              <div className="flex flex-col items-center justify-center py-24 gap-4 px-6">
+              <div className="flex flex-col items-center justify-center py-16 gap-4 px-6">
                 <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center">
                   <LocateFixed size={28} className="text-blue-400" />
                 </div>
@@ -289,6 +316,28 @@ export default function Home() {
                 >
                   Allow location
                 </button>
+                {/* Postcode alternative */}
+                <p className="text-xs text-gray-400">or search by postcode</p>
+                <form onSubmit={handlePostcode} className="flex gap-2 w-full max-w-xs">
+                  <input
+                    type="text"
+                    value={postcodeInput}
+                    onChange={(e) => setPostcodeInput(e.target.value)}
+                    placeholder="e.g. SW1A 1AA"
+                    className="flex-1 text-xs border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400 min-h-[36px]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={postcodeLoading || !postcodeInput.trim()}
+                    className="flex items-center gap-1 text-xs font-bold text-white bg-blue-600 active:bg-blue-700 px-3 py-2 rounded-xl min-h-[36px] disabled:opacity-50 transition-colors"
+                  >
+                    <Search size={12} />
+                    {postcodeLoading ? "..." : "Go"}
+                  </button>
+                </form>
+                {postcodeError && (
+                  <p className="text-xs text-red-500 -mt-2">{postcodeError}</p>
+                )}
               </div>
             )}
 
@@ -304,7 +353,7 @@ export default function Home() {
             )}
 
             {/* Station cards */}
-            {!loading && sorted.map((station, i) => (
+            {!loading && sorted.map((station: FuelStation, i: number) => (
               <div key={station.id} id={`station-${station.id}`}>
                 <StationCard
                   station={station}

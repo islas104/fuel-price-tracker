@@ -1,26 +1,7 @@
 "use client";
 import { FuelStation } from "@/lib/fuel-sources";
+import { getBrandColor } from "@/lib/brand-colors";
 import { MapPin, Navigation, TrendingDown } from "lucide-react";
-
-const BRAND_COLORS: Record<string, { bg: string; text: string }> = {
-  Asda:          { bg: "bg-green-600",  text: "text-white" },
-  Morrisons:     { bg: "bg-yellow-500", text: "text-white" },
-  Tesco:         { bg: "bg-red-600",    text: "text-white" },
-  Sainsburys:    { bg: "bg-orange-500", text: "text-white" },
-  "Sainsbury's": { bg: "bg-orange-500", text: "text-white" },
-  Jet:           { bg: "bg-red-700",    text: "text-white" },
-  Applegreen:    { bg: "bg-green-700",  text: "text-white" },
-  BP:            { bg: "bg-green-800",  text: "text-white" },
-  Shell:         { bg: "bg-yellow-400", text: "text-slate-900" },
-  Esso:          { bg: "bg-red-600",    text: "text-white" },
-  Ascona:        { bg: "bg-blue-700",   text: "text-white" },
-  Gulf:          { bg: "bg-orange-600", text: "text-white" },
-  Texaco:        { bg: "bg-red-600",    text: "text-white" },
-  MFG:           { bg: "bg-indigo-600", text: "text-white" },
-  Rontec:        { bg: "bg-cyan-700",   text: "text-white" },
-  Moto:          { bg: "bg-yellow-500", text: "text-slate-900" },
-  SGN:           { bg: "bg-purple-700", text: "text-white" },
-};
 
 // Parses "DD/MM/YYYY HH:MM:SS" → human-readable freshness label
 function formatLastUpdated(raw?: string): string | null {
@@ -46,7 +27,7 @@ interface Props {
 
 export default function StationCard({ station, rank, fuelType, isSelected, onSelect, cheapestPrice }: Props) {
   const price  = station.prices[fuelType];
-  const brand  = BRAND_COLORS[station.brand] ?? { bg: "bg-slate-600", text: "text-white" };
+  const brand  = getBrandColor(station.brand);
   const isCheapest = rank === 1;
   const savings = price && cheapestPrice && price > cheapestPrice
     ? (price - cheapestPrice).toFixed(1) : null;
@@ -90,7 +71,13 @@ export default function StationCard({ station, rank, fuelType, isSelected, onSel
 
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${brand.bg} ${brand.text}`}>
+                <span
+                  className="text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{
+                    backgroundColor: brand.hex,
+                    color: brand.text === "text-white" ? "#fff" : "#1e293b",
+                  }}
+                >
                   {station.brand}
                 </span>
               </div>

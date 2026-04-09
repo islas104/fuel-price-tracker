@@ -99,11 +99,25 @@ export async function GET(req: NextRequest) {
     FUEL_SOURCES.map((s) => fetchSource(s.url, s.brand, s.mobileUA, s.format, s.transport))
   );
 
-  const all = deduplicateStations(
-    results
-      .filter((r) => r.status === "fulfilled")
-      .flatMap((r) => (r as PromiseFulfilledResult<FuelStation[]>).value)
-  );
+  const sourceErrors: string[] = [];
+  const allStations: FuelStation[] = [];
+
+  results.forEach((result, i) => {
+    const source = FUEL_SOURCES[i];
+    if (result.status === "fulfilled") {
+      // Warn if Moto returns 0 stations — it was removed from the CMA list on 08/04/2026
+      if (source.brand === "Moto" && result.value.length === 0) {
+        console.warn("[fuel-prices] Moto returned 0 stations — feed may be defunct");
+      }
+      allStations.push(...result.value);
+    } else {
+      const msg = `${source.brand}: ${(result.reason as Error)?.message ?? "unknown error"}`;
+      sourceErrors.push(msg);
+      console.warn(`[fuel-prices] ${msg}`);
+    }
+  });
+
+  const all = deduplicateStations(allStations);
 
   const nearby = all
     .map((s)  => ({ ...s, distance: haversineDistance(lat, lng, s.lat, s.lng) }))
@@ -112,7 +126,15 @@ export async function GET(req: NextRequest) {
     .slice(0, limit);
 
   return NextResponse.json(
-    { stations: nearby, count: nearby.length },
+    {
+      stations: nearby,
+      count: nearby.length,
+      sources: {
+        succeeded: results.filter((r) => r.status === "fulfilled").length,
+        failed: sourceErrors.length,
+        errors: sourceErrors,
+      },
+    },
     { headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=600" } }
   );
 }
