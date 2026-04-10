@@ -3,17 +3,35 @@ import { FuelStation } from "@/lib/fuel-sources";
 import { getBrandColor } from "@/lib/brand-colors";
 import { MapPin, Navigation, TrendingDown } from "lucide-react";
 
-// Parses "DD/MM/YYYY HH:MM:SS" → human-readable freshness label
-function formatLastUpdated(raw?: string): string | null {
-  if (!raw) return null;
-  const match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-  if (!match) return null;
-  const [, dd, mm, yyyy] = match;
-  const updated = new Date(`${yyyy}-${mm}-${dd}`);
-  const diffDays = Math.floor((Date.now() - updated.getTime()) / 86_400_000);
-  if (diffDays === 0) return "Updated today";
-  if (diffDays === 1) return "Updated yesterday";
-  return `Updated ${diffDays}d ago`;
+// Parses "DD/MM/YYYY" or ISO timestamps → human-readable freshness label.
+// Falls back to "Live" when no timestamp is available — data is always
+// at most 15 min old due to the server-side cache.
+function formatLastUpdated(raw?: string): string {
+  if (!raw) return "Live";
+
+  // DD/MM/YYYY (retailer feeds)
+  const ddmmyyyy = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (ddmmyyyy) {
+    const [, dd, mm, yyyy] = ddmmyyyy;
+    const updated = new Date(`${yyyy}-${mm}-${dd}`);
+    const diffDays = Math.floor((Date.now() - updated.getTime()) / 86_400_000);
+    if (diffDays === 0) return "Updated today";
+    if (diffDays === 1) return "Updated yesterday";
+    return `Updated ${diffDays}d ago`;
+  }
+
+  // ISO timestamp (Fuel Finder API)
+  const d = new Date(raw);
+  if (!isNaN(d.getTime())) {
+    const diffMins = Math.floor((Date.now() - d.getTime()) / 60_000);
+    if (diffMins < 1)  return "Just updated";
+    if (diffMins < 60) return `Updated ${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `Updated ${diffHours}h ago`;
+    return `Updated ${Math.floor(diffHours / 24)}d ago`;
+  }
+
+  return "Live";
 }
 
 interface Props {
@@ -88,9 +106,7 @@ export default function StationCard({ station, rank, fuelType, isSelected, onSel
                   {station.address}{station.postcode ? `, ${station.postcode}` : ""}
                 </span>
               </div>
-              {freshness && (
-                <p className="text-[10px] text-gray-300 mt-0.5">{freshness}</p>
-              )}
+              <p className="text-[10px] text-gray-300 mt-0.5">{freshness}</p>
             </div>
           </div>
 

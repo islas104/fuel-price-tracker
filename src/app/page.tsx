@@ -8,7 +8,7 @@ import StationCard from "./components/StationCard";
 import SkeletonCard from "./components/SkeletonCard";
 import {
   Fuel, LocateFixed, AlertCircle, MapIcon, ListIcon,
-  ArrowUpDown, TrendingDown, ChevronDown, Download, Search,
+  ArrowUpDown, TrendingDown, ChevronDown, Search, RefreshCw,
 } from "lucide-react";
 
 const FuelMap = dynamic(() => import("./components/FuelMap"), { ssr: false });
@@ -18,8 +18,6 @@ type SortBy   = "distance" | "price";
 type View     = "list" | "map";
 
 export default function Home() {
-  const downloadHref = "/downloads/fuel-finder-latest.csv";
-
   const { location, setLocation, error: geoError, locate: getLocation } = useGeolocation();
 
   const [fuelType,   setFuelType]   = useState<FuelType>("petrol");
@@ -33,7 +31,7 @@ export default function Home() {
   const [postcodeError,   setPostcodeError]   = useState<string | null>(null);
   const [postcodeLoading, setPostcodeLoading] = useState(false);
 
-  const { stations, loading, error: fetchError, sourceMeta } = useFuelPrices(location, radius);
+  const { stations, loading, error: fetchError, sourceMeta, lastFetched, refresh } = useFuelPrices(location, radius);
 
   const sorted = useMemo(
     () =>
@@ -112,7 +110,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Stat pills — desktop only */}
+        {/* Stat pills + refresh — desktop only */}
         {!loading && (cheapestPetrol || cheapestDiesel) && (
           <div className="hidden md:flex items-center gap-4">
             {cheapestPetrol && (
@@ -129,7 +127,20 @@ export default function Home() {
                 <span className="text-sm font-bold text-amber-400">{cheapestDiesel.toFixed(1)}p</span>
               </div>
             )}
-            {/* Source health indicator */}
+            {lastFetched && (
+              <button
+                onClick={refresh}
+                title="Refresh prices"
+                className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                <RefreshCw size={10} />
+                <span>
+                  {Math.floor((Date.now() - lastFetched.getTime()) / 60_000) < 1
+                    ? "Just updated"
+                    : `${Math.floor((Date.now() - lastFetched.getTime()) / 60_000)}m ago`}
+                </span>
+              </button>
+            )}
             {sourceMeta && sourceMeta.failed > 0 && (
               <span className="text-[10px] text-slate-500" title={sourceMeta.errors.join("\n")}>
                 {sourceMeta.succeeded}/{sourceMeta.succeeded + sourceMeta.failed} sources
@@ -195,16 +206,6 @@ export default function Home() {
           <ArrowUpDown size={12} />
           <span className="hidden sm:inline">{sortBy === "price" ? "Cheapest" : "Nearest"}</span>
         </button>
-
-        <a
-          href={downloadHref}
-          download="fuel-finder-latest.csv"
-          className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl min-h-[36px] flex-shrink-0 hover:bg-emerald-100 transition-colors"
-        >
-          <Download size={12} />
-          <span className="hidden sm:inline">Download CSV</span>
-          <span className="sm:hidden">CSV</span>
-        </a>
 
         {/* Radius */}
         <div className="relative flex-shrink-0 md:ml-auto">

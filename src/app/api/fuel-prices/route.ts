@@ -89,7 +89,9 @@ export async function GET(req: NextRequest) {
   const lat    = parseFloat(searchParams.get("lat")    ?? "0");
   const lng    = parseFloat(searchParams.get("lng")    ?? "0");
   const radius = Math.min(parseFloat(searchParams.get("radius") ?? "10"), 30);
-  const limit  = Math.min(parseInt(searchParams.get("limit")   ?? "50", 10), 100);
+  // 200 stations — large enough that price-sorting on the client never misses
+  // a cheaper station that distance-sorting would have pushed out of a 50-cap.
+  const limit  = Math.min(parseInt(searchParams.get("limit")   ?? "200", 10), 200);
 
   const inUK = lat >= 49 && lat <= 61 && lng >= -8 && lng <= 2;
   if (!lat || !lng || !inUK) {
