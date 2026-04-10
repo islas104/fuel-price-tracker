@@ -4,7 +4,7 @@ FuelFinder is a live UK fuel price tracker that shows you the cheapest petrol an
 
 Open the app, allow location access, and instantly see every nearby station ranked by price — with an interactive map, savings comparisons, and one-tap directions.
 
-![FuelFinder — list view](docs/Ui.png)
+![FuelFinder — list view](docs/UserInterface.png)
 
 ---
 
