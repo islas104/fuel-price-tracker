@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import {
   FUEL_SOURCES,
   FuelStation,
@@ -9,6 +7,7 @@ import {
   normaliseStation,
   parseCsvRecords,
 } from "@/lib/fuel-sources";
+import { fetchFuelFinderStations } from "@/lib/fuel-finder-api";
 
 export const runtime = "nodejs";
 
@@ -22,25 +21,20 @@ const fetchSource = unstable_cache(
     brand: string,
     mobileUA: boolean,
     format: "json" | "csv",
-    transport: "http" | "file" = "http"
   ): Promise<FuelStation[]> => {
-    const text = transport === "file"
-      ? await readFile(path.join(process.cwd(), url), "utf8")
-      : await (async () => {
-          const res = await fetch(url, {
-            headers: {
-              "User-Agent": mobileUA
-                ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-                : "FuelPriceTracker/1.0",
-              "Accept": "application/json, text/plain, */*",
-            },
-            signal: AbortSignal.timeout(5_000), // 5s — fail fast, most feeds respond in <1s
-          });
-          if (!res.ok) throw new Error(`${brand}: HTTP ${res.status}`);
-          return res.text();
-        })();
-    let raw: unknown[];
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": mobileUA
+          ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+          : "FuelPriceTracker/1.0",
+        "Accept": "application/json, text/plain, */*",
+      },
+      signal: AbortSignal.timeout(5_000), // 5s — fail fast, most feeds respond in <1s
+    });
+    if (!res.ok) throw new Error(`${brand}: HTTP ${res.status}`);
+    const text = await res.text();
 
+    let raw: unknown[];
     if (format === "csv") {
       raw = parseCsvRecords(text);
     } else {
@@ -60,6 +54,14 @@ const fetchSource = unstable_cache(
   },
   ["fuel-source"], // Next.js appends the function args to form a unique key per source
   { revalidate: 900 } // 15 minutes per source
+);
+
+// Fuel Finder API — cached separately from the retailer feeds.
+// The API fetch involves OAuth + pagination so it gets its own cache entry.
+const fetchFuelFinderCached = unstable_cache(
+  fetchFuelFinderStations,
+  ["fuel-finder-api"],
+  { revalidate: 900 } // 15 minutes
 );
 
 // Remove stations at the same physical location (within ~11m, 4 d.p.).
@@ -94,15 +96,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "lat and lng must be valid UK coordinates" }, { status: 400 });
   }
 
-  // All sources fetched in parallel — each from its own cache entry
-  const results = await Promise.allSettled(
-    FUEL_SOURCES.map((s) => fetchSource(s.url, s.brand, s.mobileUA, s.format, s.transport))
-  );
+  // Retailer feeds + Fuel Finder API all fetched in parallel from their own caches
+  const [retailerResults, fuelFinderResult] = await Promise.all([
+    Promise.allSettled(
+      FUEL_SOURCES.map((s) => fetchSource(s.url, s.brand, s.mobileUA, s.format))
+    ),
+    fetchFuelFinderCached().then(
+      (stations) => ({ status: "fulfilled" as const, value: stations }),
+      (err: Error) => ({ status: "rejected" as const, reason: err }),
+    ),
+  ]);
 
   const sourceErrors: string[] = [];
   const allStations: FuelStation[] = [];
 
-  results.forEach((result, i) => {
+  retailerResults.forEach((result, i) => {
     const source = FUEL_SOURCES[i];
     if (result.status === "fulfilled") {
       // Warn if Moto returns 0 stations — it was removed from the CMA list on 08/04/2026
@@ -117,6 +125,14 @@ export async function GET(req: NextRequest) {
     }
   });
 
+  if (fuelFinderResult.status === "fulfilled") {
+    allStations.push(...fuelFinderResult.value);
+  } else {
+    const msg = `Fuel Finder API: ${(fuelFinderResult.reason as Error)?.message ?? "unknown error"}`;
+    sourceErrors.push(msg);
+    console.warn(`[fuel-prices] ${msg}`);
+  }
+
   const all = deduplicateStations(allStations);
 
   const nearby = all
@@ -125,12 +141,16 @@ export async function GET(req: NextRequest) {
     .sort((a, b)  => a.distance - b.distance)
     .slice(0, limit);
 
+  const succeededCount =
+    retailerResults.filter((r) => r.status === "fulfilled").length +
+    (fuelFinderResult.status === "fulfilled" ? 1 : 0);
+
   return NextResponse.json(
     {
       stations: nearby,
       count: nearby.length,
       sources: {
-        succeeded: results.filter((r) => r.status === "fulfilled").length,
+        succeeded: succeededCount,
         failed: sourceErrors.length,
         errors: sourceErrors,
       },

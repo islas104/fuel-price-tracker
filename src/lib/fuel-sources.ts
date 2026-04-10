@@ -41,7 +41,7 @@ export const FUEL_SOURCES: FuelSource[] = [
   { brand: "Moto",       url: "https://moto-way.com/fuel-price/fuel_prices.json",                                          mobileUA: false, format: "json" },
   // SGN Retail — 150 stations
   { brand: "SGN",        url: "https://www.sgnretail.uk/files/data/SGN_daily_fuel_prices.json",                            mobileUA: false, format: "json" },
-  { brand: "Fuel Finder", url: "public/downloads/fuel-finder-latest.csv",                                                   mobileUA: false, format: "csv", transport: "file" },
+  // Fuel Finder (UK gov): fetched live via OAuth API — see src/lib/fuel-finder-api.ts
   // Tesco: Akamai blocks all server-side requests including ScraperAPI free tier
   // Shell: HTTP 403 even with mobile User-Agent
   // Esso (direct): stale feed (~12 days old) — excluded
